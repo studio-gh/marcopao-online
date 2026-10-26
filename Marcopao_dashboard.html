@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#142b26">
+<title>Marcopão | Visão de Vendas</title>
+<style>
+:root{--ink:#182a25;--muted:#718078;--paper:#f6f5ef;--card:#fffefa;--line:#e4e7df;--green:#183c32;--green2:#2e6652;--lime:#d7f36a;--orange:#ed9b50;--blue:#82b6c6;--red:#bf6c59;--shadow:0 12px 34px rgba(24,42,37,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button{font:inherit;cursor:pointer}
+.shell{max-width:1240px;margin:auto;padding:24px 24px 44px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:12px}.mark{width:44px;height:44px;background:var(--lime);border-radius:14px;display:grid;place-items:center;font-size:22px;font-weight:900;color:var(--green)}.brandname{font-weight:850;letter-spacing:-.04em;font-size:20px}.brandmeta{color:var(--muted);font-size:12px;margin-top:3px}.top-actions{display:flex;align-items:center;gap:8px}.pill{display:inline-flex;align-items:center;gap:7px;background:#e8eee6;color:#315446;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700}.dot{width:7px;height:7px;background:#4d9c69;border-radius:50%}.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 13px;font-weight:700;font-size:13px}.btn:hover{border-color:#aab8ad}.hero{display:grid;grid-template-columns:1.4fr .8fr;gap:18px;margin-bottom:18px}.hero-main{background:var(--green);color:white;border-radius:24px;padding:28px;position:relative;overflow:hidden;min-height:230px}.hero-main:after{content:"";position:absolute;width:250px;height:250px;border:1px solid rgba(215,243,106,.23);border-radius:50%;right:-40px;top:-75px;box-shadow:0 0 0 25px rgba(215,243,106,.04),0 0 0 55px rgba(215,243,106,.035)}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:800;opacity:.72}.hero h1{font-size:clamp(28px,4vw,44px);line-height:1.02;letter-spacing:-.055em;margin:12px 0 12px;max-width:560px}.hero p{color:#d1ded7;line-height:1.55;font-size:13px;max-width:490px;margin:0}.hero-bottom{display:flex;gap:24px;align-items:end;margin-top:26px;position:relative;z-index:1}.total{font-size:clamp(34px,5vw,48px);font-weight:850;letter-spacing:-.06em;line-height:1}.hero-note{font-size:12px;color:#c1d3c9;margin-top:8px}.hero-side{background:var(--lime);border-radius:24px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;min-height:230px}.hero-side .eyebrow{color:#52623a;opacity:1}.hero-side .big{font-size:42px;letter-spacing:-.06em;font-weight:850;color:var(--green);margin-top:14px}.hero-side p{font-size:13px;color:#52623a;line-height:1.5;margin:8px 0 0}.side-foot{font-size:11px;font-weight:800;color:#52623a;margin-top:22px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:26px 0 12px}.section-head h2{font-size:17px;letter-spacing:-.03em;margin:0}.section-head p{font-size:12px;color:var(--muted);margin:5px 0 0}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;min-width:0}.metric-label{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}.metric-value{font-size:25px;font-weight:820;letter-spacing:-.05em;margin:12px 0 7px;white-space:nowrap}.metric-foot{font-size:11px;color:var(--muted);line-height:1.45}.mini-icon{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#eef2e9;color:var(--green);font-weight:900}.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;min-width:0}.panel h3{font-size:15px;letter-spacing:-.025em;margin:0}.panel-sub{font-size:12px;color:var(--muted);margin-top:5px}.pay-layout{display:flex;align-items:center;gap:26px;margin-top:22px}.donut{width:154px;height:154px;flex:0 0 154px;border-radius:50%;background:conic-gradient(var(--green2) 0 71.1%,var(--orange) 71.1% 98.3%,var(--blue) 98.3% 100%);display:grid;place-items:center;position:relative}.donut:before{content:"";position:absolute;inset:17px;border-radius:50%;background:var(--card)}.donut-center{position:relative;text-align:center}.donut-center strong{display:block;font-size:17px;letter-spacing:-.04em}.donut-center span{font-size:10px;color:var(--muted)}.legend{flex:1;min-width:0}.legend-row{display:flex;align-items:center;gap:9px;margin:12px 0;font-size:12px}.swatch{width:9px;height:9px;border-radius:3px;flex:0 0 9px}.legend-name{color:var(--muted);flex:1}.legend-val{font-weight:800;white-space:nowrap}.bar-row{margin-top:20px}.bar-label{display:flex;justify-content:space-between;gap:10px;font-size:12px;margin-bottom:8px}.bar-label span:first-child{color:var(--muted)}.track{height:9px;border-radius:99px;background:#edf0e9;overflow:hidden}.fill{height:100%;border-radius:99px;background:var(--green2)}.notice{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#fff4e6;border:1px solid #f1dfc6;border-radius:16px;margin-top:12px;color:#76512f;font-size:12px;line-height:1.5}.notice strong{display:block;color:#654224;margin-bottom:3px}.table-wrap{overflow-x:auto;margin-top:18px}.table{width:100%;border-collapse:collapse;min-width:420px;font-size:12px}.table th{text-align:left;color:var(--muted);font-weight:700;padding:10px;border-bottom:1px solid var(--line)}.table td{padding:13px 10px;border-bottom:1px solid #eff0eb}.table td:last-child,.table th:last-child{text-align:right}.table tr:last-child td{border-bottom:0}.tag{background:#f0f2eb;border-radius:7px;padding:5px 7px;font-size:10px;font-weight:800;color:#56675b}.footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-top:22px;padding:0 3px}.modal{position:fixed;inset:0;background:rgba(15,29,24,.48);display:none;align-items:center;justify-content:center;padding:18px;z-index:5}.modal.open{display:flex}.modal-card{width:min(540px,100%);background:var(--card);border-radius:20px;padding:24px;box-shadow:0 24px 80px #0002}.modal-card h2{margin:0 0 8px;letter-spacing:-.04em}.modal-card p{color:var(--muted);font-size:13px;line-height:1.55}.modal-card label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}.modal-card input,.modal-card textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;background:white;font:inherit;font-size:13px}.modal-card textarea{min-height:100px;resize:vertical}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:12px 16px;border-radius:12px;font-size:12px;display:none;z-index:10}.toast.show{display:block}.filters{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.5fr;gap:10px;background:#fffefa;border:1px solid var(--line);padding:16px;border-radius:18px;margin:0 0 18px}.filter-field label{display:block;font-size:11px;color:var(--muted);font-weight:800;margin:0 0 7px}.filter-field select,.filter-field input{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;padding:11px;background:#fff;font:inherit;font-size:12px;color:var(--ink)}.filter-note{font-size:11px;color:var(--muted);margin-top:9px}.report-view{display:none;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:0 0 18px}.report-view.active{display:block}.report-view h2{font-size:17px;margin:0 0 6px}.report-view p{font-size:12px;color:var(--muted);line-height:1.5}.raw-results{white-space:pre-wrap;overflow-wrap:anywhere;background:#f7f7f1;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12px;line-height:1.6;max-height:340px;overflow:auto}.empty-state{border:1px dashed #cbd3c8;border-radius:12px;padding:18px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}.hidden-by-filter{display:none!important}@media(max-width:800px){.filters{grid-template-columns:1fr 1fr}}@media(max-width:460px){.filters{grid-template-columns:1fr}}@media print{.filters,.report-view{display:none!important}}
+@media(max-width:800px){.shell{padding:16px 14px 30px}.hero{grid-template-columns:1fr}.hero-main,.hero-side{min-height:unset}.hero-side{padding:21px}.hero-side .big{font-size:36px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panels{grid-template-columns:1fr}.topbar{align-items:flex-start}.top-actions{flex-direction:column;align-items:flex-end}.pay-layout{gap:16px}.donut{width:132px;height:132px;flex-basis:132px}.donut:before{inset:15px}.metric{padding:15px}.metric-value{font-size:22px}}
+@media(max-width:420px){.brandname{font-size:17px}.brandmeta{max-width:170px}.pill{font-size:10px;padding:7px 9px}.top-actions .btn{font-size:11px;padding:8px}.hero-main{padding:22px}.hero-bottom{margin-top:22px}.grid{gap:8px}.metric{padding:13px}.metric-value{font-size:20px}.pay-layout{align-items:flex-start;flex-direction:column}.legend{width:100%}.legend-row{margin:10px 0}}
+@media print{body{background:white}.shell{max-width:none;padding:0}.top-actions,.btn,.modal,.footer button{display:none!important}.hero-main,.hero-side,.metric,.panel{break-inside:avoid;box-shadow:none}.hero{grid-template-columns:1.4fr .8fr}.grid{grid-template-columns:repeat(4,1fr)}.panels{grid-template-columns:1fr 1fr}}
+
+/* Fix de contraste dos campos do modal: independente do tema do navegador */
+.modal textarea,
+.modal input,
+.modal select,
+#reportText,
+#reportDate {
+  color: #24352e !important;
+  -webkit-text-fill-color: #24352e !important;
+  background-color: #fffefa !important;
+  caret-color: #24352e !important;
+  opacity: 1 !important;
+  color-scheme: light;
+  font-family: inherit;
+}
+.modal textarea::placeholder,
+#reportText::placeholder {
+  color: #7a827d !important;
+  -webkit-text-fill-color: #7a827d !important;
+  opacity: 1 !important;
+}
+.modal textarea:focus,
+.modal input:focus,
+#reportText:focus,
+#reportDate:focus {
+  outline: 2px solid #496c5a;
+  outline-offset: 1px;
+}
+
+
+.showcase-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.showcase{position:relative;overflow:hidden;animation:rise .55s ease both}.showcase:nth-child(2){animation-delay:.08s}.showcase-top,.panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.showcase h3{margin-top:7px}.showcase-icon{width:36px;height:36px;border-radius:12px;background:#edf3e5;display:grid;place-items:center;color:var(--green);font-weight:900}.showcase-number{font-size:clamp(27px,3vw,36px);font-weight:850;letter-spacing:-.055em;margin:23px 0 5px}.showcase-caption{font-size:12px;color:var(--muted);line-height:1.55}.progress-label{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted);margin:22px 0 8px}.showcase-foot{font-size:11px;color:var(--muted);line-height:1.5;margin-top:17px}.product-highlight{display:flex;gap:11px;align-items:center;margin-top:22px;padding:13px;background:#f5f6ef;border-radius:13px}.product-badge,.rank-num{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border-radius:10px;background:var(--lime);color:var(--green);font-size:11px;font-weight:900}.product-highlight strong{font-size:12px}.insight-panels{margin-top:12px}.rank-list{margin-top:20px}.rank-item{margin:16px 0}.rank-line{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:8px}.rank-line span{color:var(--muted)}.rank-line strong{white-space:nowrap}.rank-track{height:8px;background:#edf0e9;border-radius:99px;overflow:hidden}.rank-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#2e6652,#9fcf6d);transform-origin:left;animation:grow .8s ease both}.product-list{margin-top:12px}.product-row{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid #eff0eb}.product-row:last-child{border-bottom:0}.product-info{flex:1;min-width:0}.product-info strong{display:block;font-size:12px}.product-info span{display:block;font-size:11px;color:var(--muted);margin-top:4px}.product-row>strong{font-size:12px;white-space:nowrap}.rank-num{background:#f0f2eb;color:#52675a}.filters select option{padding:8px}@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media(max-width:800px){.showcase-grid{grid-template-columns:1fr}.product-row{gap:8px}.product-row>strong{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
+
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="mark">M</div><div><div class="brandname">marcopão <span style="font-weight:500;color:#7a887f">/ visão de vendas</span></div><div class="brandmeta">Painel de acompanhamento · Relatórios Bellabyte</div></div></div>
+    <div class="top-actions"><span class="pill"><span class="dot"></span> Amostras demonstrativas</span><button class="btn" id="importBtn">＋ Atualizar relatório</button><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>
+  </header>
+
+  <section class="filters" aria-label="Filtros inteligentes">
+    <div class="filter-field"><label for="reportType">RELATÓRIO DO MONITORBOT</label>
+      <select id="reportType">
+        <option value="sale-day">1 · Venda do dia</option>
+        <option value="sale-month">2 · Venda acumulada do mês</option>
+        <option value="top-value">3 · Top 100 por valor</option>
+        <option value="top-quantity">4 · Top 100 por quantidade</option>
+        <option value="ticket">10 · Ticket médio / preço por quantidade</option>
+        <option value="sales-group">12 · Total de vendas por grupo</option>
+        <option value="products-group">13 · Venda de produto por grupo</option>
+      </select>
+    </div>
+    <div class="filter-field"><label for="periodFilter">PERÍODO</label>
+      <select id="periodFilter"><option value="all">Todos / conforme relatório</option><option value="today">Hoje</option><option value="month">Mês atual</option><option value="custom">Data informada</option></select>
+    </div>
+    <div class="filter-field"><label for="branchFilter">FILIAL</label>
+      <select id="branchFilter"><option value="all">Todas as filiais</option><option value="current">Filial do relatório carregado</option></select>
+    </div>
+    <div class="filter-field"><label for="searchFilter">BUSCAR NO RELATÓRIO</label>
+      <input id="searchFilter" type="search" placeholder="Ex.: pão francês, fornecedor, produto...">
+    </div>
+    <div class="filter-note" style="grid-column:1/-1" id="filterStatus">Filtros aplicados à coleta carregada. Relatórios ainda não importados aparecem como pendentes, sem inventar dados.</div>
+  </section>
+  <section class="report-view" id="otherReportView">
+    <h2 id="otherReportTitle">Relatório selecionado</h2>
+    <p id="otherReportDescription">Cole o conteúdo do relatório correspondente do Monitorbot para pesquisar e consultar o texto.</p>
+    <div class="empty-state" id="otherReportEmpty">Este relatório ainda não foi importado. Clique em “Atualizar relatório” e cole a resposta correspondente do Monitorbot.</div>
+    <div class="raw-results" id="otherReportRaw" style="display:none"></div>
+  </section>
+
+  <section class="hero">
+    <div class="hero-main">
+      <div class="eyebrow">Resumo de vendas · Marcopão</div>
+      <h1>Um olhar claro<br>sobre o dia.</h1>
+      <p>Uma leitura simples do caixa, das formas de pagamento e do movimento da padaria.</p>
+      <div class="hero-bottom"><div><div class="total" id="heroTotal">R$ 1.822,46</div><div class="hero-note">Venda total informada no relatório</div></div></div>
+    </div>
+    <div class="hero-side">
+      <div><div class="eyebrow">Ticket médio</div><div class="big" id="heroTicket">R$ 11,53</div><p>Valor médio por cupom registrado no relatório.</p></div>
+      <div class="side-foot" id="reportPeriod">PERÍODO: VENDA DO DIA · DATA NÃO IDENTIFICADA</div>
+    </div>
+  </section>
+
+  <div class="section-head"><div><h2>Indicadores principais</h2><p>Dados extraídos do texto enviado pelo Telegram.</p></div><span class="tag" id="branchTag">MARCOPÃO · FILIAL DO RELATÓRIO</span></div>
+  <section class="grid">
+    <div class="metric"><div class="metric-label">Cupons registrados <span class="mini-icon">#</span></div><div class="metric-value" id="coupons">158</div><div class="metric-foot">Quantidade de cupons informada</div></div>
+    <div class="metric"><div class="metric-label">Dinheiro <span class="mini-icon">$</span></div><div class="metric-value" id="cash">R$ 495,95</div><div class="metric-foot" id="cashShare">27,2% do total</div></div>
+    <div class="metric"><div class="metric-label">PIX <span class="mini-icon">↗</span></div><div class="metric-value" id="pix">R$ 31,20</div><div class="metric-foot" id="pixShare">1,7% do total</div></div>
+    <div class="metric"><div class="metric-label">TEF <span class="mini-icon">▤</span></div><div class="metric-value" id="tef">R$ 1.295,31</div><div class="metric-foot" id="tefShare">71,1% do total</div></div>
+  </section>
+
+  <section class="panels">
+    <div class="panel">
+      <h3>Como os clientes pagaram</h3><div class="panel-sub">Participação de cada forma no total recebido</div>
+      <div class="pay-layout"><div class="donut" id="donut"><div class="donut-center"><strong id="donutTotal">R$ 1,82 mil</strong><span>total do relatório</span></div></div>
+      <div class="legend">
+        <div class="legend-row"><span class="swatch" style="background:var(--green2)"></span><span class="legend-name">TEF</span><span class="legend-val" id="legendTef">R$ 1.295,31</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--orange)"></span><span class="legend-name">Dinheiro</span><span class="legend-val" id="legendCash">R$ 495,95</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--blue)"></span><span class="legend-name">PIX</span><span class="legend-val" id="legendPix">R$ 31,20</span></div>
+      </div></div>
+    </div>
+    <div class="panel">
+      <h3>Movimento e conferência</h3><div class="panel-sub">Resumo de cupons e valores de cancelamento</div>
+      <div class="bar-row"><div class="bar-label"><span>Ticket médio</span><strong id="ticketLabel">R$ 11,53</strong></div><div class="track"><div class="fill" id="ticketBar" style="width:76%"></div></div></div>
+      <div class="bar-row"><div class="bar-label"><span>Cupons cancelados</span><strong id="cancelCoupons">0</strong></div><div class="track"><div class="fill" id="cancelBar" style="width:0%"></div></div></div>
+      <div class="bar-row"><div class="bar-label"><span>Valor de itens cancelados</span><strong id="cancelItems">R$ 8,44</strong></div><div class="track"><div class="fill" id="cancelItemBar" style="width:.5%;background:var(--orange)"></div></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Conferência</th><th>Resultado</th></tr></thead><tbody>
+      <tr><td>Soma das formas de pagamento</td><td><span class="tag" id="paymentCheck">Confere</span></td></tr>
+      <tr><td>Total informado ÷ cupons</td><td><span class="tag" id="ticketCheck">Confere</span></td></tr>
+      <tr><td>Data do relatório</td><td id="dateCheck">Não identificada</td></tr>
+      </tbody></table></div>
+    </div>
+  </section>
+  <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Uma prévia dos relatórios que seu pai usa, reunidos em um só lugar.</p></div><span class="tag">AMOSTRAS DO MONITORBOT</span></section>
+  <section class="showcase-grid">
+    <article class="showcase panel">
+      <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DE OUTUBRO</div><h3>Venda do mês</h3></div><span class="showcase-icon">↗</span></div>
+      <div class="showcase-number">R$ 200.869,65</div><div class="showcase-caption">12.093 cupons · Ticket médio R$ 16,61</div>
+      <div class="progress-label"><span>Meta mensal</span><span>Meta ainda não configurada</span></div><div class="track"><div class="fill" style="width:100%"></div></div>
+      <div class="showcase-foot">Valor informado pelo relatório acumulado. Sem meta inventada.</div>
+    </article>
+    <article class="showcase panel">
+      <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">DESTAQUE DE PRODUTO</div><h3>Quem puxa o faturamento?</h3></div><span class="showcase-icon">★</span></div>
+      <div class="showcase-number">Pão francês</div><div class="showcase-caption">R$ 4.160,11 · 1.664,635 kg no relatório de produtos</div>
+      <div class="product-highlight"><span class="product-badge">01</span><div><strong>Produto essencial</strong><div class="showcase-caption">Cruzar faturamento e quantidade ajuda a enxergar os campeões da padaria.</div></div></div>
+      <div class="showcase-foot">Amostra do relatório de produtos por grupo, conforme texto enviado.</div>
+    </article>
+  </section>
+  <section class="panels insight-panels">
+    <div class="panel"><div class="panel-heading"><div><h3>Faturamento por grupo</h3><div class="panel-sub">Acumulado de outubro · valores do relatório 12</div></div><span class="tag">TOP 5</span></div><div id="groupBars" class="rank-list"></div><div class="showcase-foot">Barras comparativas dentro deste ranking, não participação no faturamento total conciliado.</div></div>
+    <div class="panel"><div class="panel-heading"><div><h3>Produtos em evidência</h3><div class="panel-sub">Exemplos do relatório 13 · quantidade e receita</div></div><span class="tag">AMOSTRA</span></div><div class="product-list">
+      <div class="product-row"><span class="rank-num">01</span><div class="product-info"><strong>Sacola biodegradável 40×50</strong><span>3.061 un.</span></div><strong>R$ 244,85</strong></div>
+      <div class="product-row"><span class="rank-num">02</span><div class="product-info"><strong>Pão francês</strong><span>1.664,635 kg</span></div><strong>R$ 41.600,11</strong></div>
+      <div class="product-row"><span class="rank-num">03</span><div class="product-info"><strong>Sacola unidade 38×50</strong><span>1.108 un.</span></div><strong>R$ 88,60</strong></div>
+      <div class="product-row"><span class="rank-num">04</span><div class="product-info"><strong>Pão suíço</strong><span>1.086 un.</span></div><strong>R$ 2.715,00</strong></div>
+      <div class="product-row"><span class="rank-num">05</span><div class="product-info"><strong>Cafezinho</strong><span>1.016 un.</span></div><strong>R$ 4.572,00</strong></div>
+    </div><div class="showcase-foot">A listagem original contém campos de estoque/custo que precisam de validação antes de serem usados para decisões.</div></div>
+  </section>
+  <div class="notice"><div style="font-size:18px">ⓘ</div><div><strong>Protótipo demonstrativo, ainda sem atualização automática</strong>Este painel reúne amostras reais compartilhadas do Monitorbot para demonstrar como as informações podem ficar organizadas. As consultas têm períodos e escopos diferentes; por isso, valores que ainda não foram conciliados aparecem identificados como amostras. A integração com a nuvem será construída na próxima etapa.</div></div>
+  <footer class="footer"><span>MARCOPÃO ONLINE · Protótipo para validação</span><span id="importInfo">Importado para análise em 26/10/2026 · Data original não informada</span><button class="btn" id="resetBtn">Restaurar relatório de exemplo</button></footer>
+</div>
+<div class="modal" id="modal"><div class="modal-card">
+  <h2 id="modalTitle">Atualizar relatório</h2>
+  <p>Cole o texto copiado do bot. A venda do dia atualiza os indicadores principais; os demais relatórios ficam disponíveis para consulta e busca local. Os dados permanecem neste arquivo, no navegador, e não são enviados a um servidor.</p>
+  <label for="reportText">Texto integral do relatório selecionado</label><textarea id="reportText" placeholder="Ex.: Venda de Hoje Filial: ...&#10;Dinheiro: R$ 495,95&#10;PIX: R$ 31,20&#10;TEF: R$ 1.295,31&#10;Total: R$ 1.822,46&#10;Quantidades de Cupons: 158&#10;Ticket Médio: 11,53"></textarea>
+  <label for="reportDate">Data de referência (opcional, somente se souber)</label><input id="reportDate" placeholder="Ex.: 26/10/2026">
+  <div class="modal-actions"><button class="btn" id="cancelModal">Cancelar</button><button class="btn" id="applyBtn" style="background:var(--green);color:white;border-color:var(--green)">Atualizar painel</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<script>
+const base={total:1982.18,cash:521.95,pix:31.20,tef:1429.03,coupons:168,ticket:11.80,cancelCoupons:0,cancelItems:8.44,branch:"MARCOPAO LANCHONETE E PANIFICACAO LTDA",date:"Hoje · 26/10/2026 (seleção Hoje no bot)",imported:"26/10/2026"};
+const reportNames={
+ "sale-day":"Venda do dia","sale-month":"Venda acumulada do mês","top-value":"Top 100 por valor","top-quantity":"Top 100 por quantidade",
+ "payable":"Contas a pagar","receivable":"Contas a receber","group-purchases":"Compras do grupo","purchases":"Compras",
+ "changed-products":"Produtos alterados","ticket":"Ticket médio / preço por quantidade","cancelled":"Vendas canceladas",
+ "sales-group":"Total de vendas por grupo","products-group":"Venda de produto por grupo"
+};
+let data={...base};
+let importedReports={
+ "sale-day":{text:"Venda de Hoje Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nDinheiro: R$ 521,95\nPIX: R$ 31,20\nTEF: R$ 1.429,03\nTotal: R$ 1.982,18\nQuantidades de Cupons: 168\nTicket Médio: 11,80\nQtd de Cupons cancelados: 0\nVlr Total Item Canc.: R$ 8,44",date:base.date,branch:base.branch},
+ "sale-month":{text:"Venda Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nDinheiro: R$ 42.435,06\nPIX: R$ 1.279,32\nPOS Crédito: R$ 2.632,85\nPOS Débito: R$ 2.482,96\nTEF: R$ 151.358,70\nTotal: R$ 200.869,65\nCupons: 12.093\nTicket médio: R$ 16,61\nVenda não concluída: R$ 3.346,11\nValor total item cancelado: R$ 182.080,36",date:"Outubro de 2026",branch:base.branch},
+ "top-value":{text:"Top 100 por valor · amostra enviada pelo usuário. Produtos e totais precisam de validação integral antes de análises automatizadas.",date:"Período conforme relatório original",branch:base.branch},
+ "top-quantity":{text:"Top 100 por quantidade · amostra enviada pelo usuário. Unidades de medida variam entre UN e KG.",date:"Período conforme relatório original",branch:base.branch},
+ "ticket":{text:"Ticket Médio / Preço de Vendas por Quantidade · filtro Todos · período Outubro. Arquivo de produtos enviado pelo usuário; campos de preço e quantidade disponíveis para consulta.",date:"Outubro de 2026",branch:base.branch},
+ "sales-group":{text:"Vendas por grupo · acumulada do mês de Outubro\nPADARIA: R$ 84.118,52\nLANCHONETE: R$ 35.628,96\nBEBIDAS: R$ 20.353,72\nCONFEITARIA: R$ 19.984,70\nFRANGOS: R$ 12.488,00\nLATICINIOS: R$ 11.354,87\nFRIOS PARA FATIAR: R$ 8.870,54\nBOMBONIERE: R$ 2.974,95\nMERCEARIA: R$ 2.271,32\nLEITE: R$ 1.182,70\nSALGADOS FRITOS: R$ 1.161,12\nGERAL: R$ 511,97\nIFOOD: R$ 25,90\nCONGELADOS: R$ 18,24",date:"Outubro de 2026",branch:base.branch},
+ "products-group":{text:"Vendas de produto por grupo · grupo Todos · total informado: R$ 179.270,49. Exemplos: Sacola biodegradável 40x50, 3.061 UN, total R$ 244,85; Pão francês, 1.664,635 KG, total R$ 41.600,11; Sacola unidade 38x50, 1.108 UN, total R$ 88,60; Pão suíço, 1.086 UN, total R$ 2.715,00; Cafezinho, 1.016 UN, total R$ 4.572,00. Valores conforme relatório enviado.",date:"Período conforme relatório original",branch:base.branch}
+};
+let selectedType="sale-day";
+const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n||0);
+const num=n=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n||0);
+const pct=(n,t)=>t?((n/t)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'0%';
+function setText(id,val){document.getElementById(id).textContent=val}
+function renderGroupBars(){
+ const groups=[['PADARIA',84118.52],['LANCHONETE',35628.96],['BEBIDAS',20353.72],['CONFEITARIA',19984.70],['FRANGOS',12488.00]];
+ const max=groups[0][1];
+ document.getElementById('groupBars').innerHTML=groups.map((g,i)=>`<div class="rank-item"><div class="rank-line"><span>${i+1}. ${g[0]}</span><strong>${money(g[1])}</strong></div><div class="rank-track"><div class="rank-fill" style="width:${(g[1]/max*100).toFixed(1)}%;animation-delay:${i*.07}s"></div></div></div>`).join('');
+}
+function render(){
+ setText('heroTotal',money(data.total));setText('heroTicket',money(data.ticket));setText('coupons',num(data.coupons));setText('cash',money(data.cash));setText('pix',money(data.pix));setText('tef',money(data.tef));
+ setText('cashShare',pct(data.cash,data.total)+' do total');setText('pixShare',pct(data.pix,data.total)+' do total');setText('tefShare',pct(data.tef,data.total)+' do total');
+ setText('legendTef',money(data.tef));setText('legendCash',money(data.cash));setText('legendPix',money(data.pix));
+ setText('donutTotal',data.total>=1000?'R$ '+(data.total/1000).toLocaleString('pt-BR',{maximumFractionDigits:2})+' mil':money(data.total));
+ const a=data.total?data.tef/data.total*100:0,b=data.total?(data.tef+data.cash)/data.total*100:0;
+ document.getElementById('donut').style.background=`conic-gradient(var(--green2) 0 ${a}%,var(--orange) ${a}% ${b}%,var(--blue) ${b}% 100%)`;
+ setText('ticketLabel',money(data.ticket));setText('cancelCoupons',num(data.cancelCoupons));setText('cancelItems',money(data.cancelItems));
+ document.getElementById('ticketBar').style.width=Math.min(100,data.ticket/15*100)+'%';
+ document.getElementById('cancelBar').style.width=(data.coupons?Math.min(100,data.cancelCoupons/data.coupons*100):0)+'%';
+ document.getElementById('cancelItemBar').style.width=(data.total?Math.min(100,data.cancelItems/data.total*100):0)+'%';
+ const paySum=+(data.cash+data.pix+data.tef).toFixed(2);
+ setText('paymentCheck',Math.abs(paySum-data.total)<.02?'Confere':'Revisar');
+ setText('ticketCheck',data.coupons&&Math.abs(data.total/data.coupons-data.ticket)<.02?'Confere':'Revisar');
+ setText('dateCheck',data.date||'Não identificada');setText('reportPeriod','PERÍODO: VENDA DO DIA · '+(data.date?data.date.toUpperCase():'DATA NÃO IDENTIFICADA'));
+ setText('branchTag',data.branch||'FILIAL NÃO IDENTIFICADA');setText('importInfo','Importado para análise em '+(data.imported||'data não registrada')+' · '+(data.date?'Referência: '+data.date:'Data original não informada'));
+}
+function parseMoney(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseFloat(m[1].replace(/\./g,'').replace(',','.'))}return fallback}
+function parseCount(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseInt(m[1].replace(/\./g,''),10)}return fallback}
+function parseReport(text,date){
+ const d={...data};
+ d.cash=parseMoney(text,[/Dinheiro\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cash);
+ d.pix=parseMoney(text,[/PIX\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.pix);
+ d.tef=parseMoney(text,[/TEF\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.tef);
+ d.total=parseMoney(text,[/Venda Total do dia\s*:\s*R\$\s*([\d.]+,\d{2})/i,/Total\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.total);
+ d.coupons=parseCount(text,[/Quantidades?\s+de\s+Cupons\s*:\s*([\d.]+)/i],d.coupons);
+ d.ticket=parseMoney(text,[/Ticket Médio\s*:\s*R?\$?\s*([\d.]+,\d{2})/i],d.coupons?d.total/d.coupons:d.ticket);
+ d.cancelCoupons=parseCount(text,[/Qtd de Cupons cancelados\s*:\s*([\d.]+)/i],d.cancelCoupons);
+ d.cancelItems=parseMoney(text,[/Vlr Total Item Canc\.\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cancelItems);
+ const branch=text.match(/Filial\s*:\s*(.+)/i);if(branch)d.branch=branch[1].split(/\r?\n/)[0].trim();
+ d.date=date.trim();d.imported=new Date().toLocaleDateString('pt-BR');
+ return d;
+}
+function applyFilters(){
+ const period=document.getElementById('periodFilter').value;
+ const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
+ const report=importedReports[selectedType];
+ const other=selectedType!=="sale-day";
+ document.querySelector('.hero').classList.toggle('hidden-by-filter',other);
+ document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
+ document.getElementById('otherReportView').classList.toggle('active',other);
+ if(other){
+   setText('otherReportTitle',reportNames[selectedType]);
+   setText('otherReportDescription','Relatório do menu Monitorbot. O painel mantém a consulta separada da “Venda do dia” para não misturar indicadores incompatíveis.');
+   const hasText=!!(report&&report.text);
+   document.getElementById('otherReportEmpty').style.display=hasText?'none':'block';
+   const raw=document.getElementById('otherReportRaw');
+   raw.style.display=hasText?'block':'none';
+   if(hasText){
+     const lines=report.text.split(/\r?\n/);
+     const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
+     raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
+   }
+   setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
+ }else{
+   setText('filterStatus','Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados que estejam identificados no texto importado.');
+   if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
+   else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
+   else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
+   if(query)setText('filterStatus',`A busca “${document.getElementById('searchFilter').value}” está disponível nos relatórios textuais. Os indicadores de Venda do dia não são filtrados por palavra-chave.`);
+ }
+}
+const modal=document.getElementById('modal');
+document.getElementById('importBtn').onclick=()=>{
+ setText('modalTitle','Atualizar · '+reportNames[selectedType]);
+ document.getElementById('reportText').value='';
+ document.getElementById('reportDate').value=selectedType==='sale-day'?(data.date||''):'';
+ modal.classList.add('open');
+};
+document.getElementById('cancelModal').onclick=()=>modal.classList.remove('open');
+document.getElementById('applyBtn').onclick=()=>{
+ const text=document.getElementById('reportText').value.trim();
+ if(!text){toast('Cole o texto do relatório antes de atualizar.');return}
+ const date=document.getElementById('reportDate').value.trim();
+ if(selectedType==='sale-day'){
+   data=parseReport(text,date);
+   importedReports[selectedType]={text,date,branch:data.branch};
+   render();
+ }else{
+   importedReports[selectedType]={text,date,branch:(text.match(/Filial\s*:\s*(.+)/i)||[])[1]?.split(/\r?\n/)[0]?.trim()||''};
+ }
+ modal.classList.remove('open');applyFilters();toast('Relatório importado para consulta.');
+};
+document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters()});
+document.getElementById('periodFilter').addEventListener('change',applyFilters);
+document.getElementById('branchFilter').addEventListener('change',applyFilters);
+document.getElementById('searchFilter').addEventListener('input',applyFilters);
+document.getElementById('resetBtn').onclick=()=>{data={...base};importedReports={"sale-day":{text:"",date:"",branch:base.branch}};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('branchFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Relatório de exemplo restaurado.')};
+function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+render();renderGroupBars();applyFilters();
+</script>
+</body>
+</html>
