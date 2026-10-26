@@ -191,7 +191,7 @@ let importedReports={
  "top-value":{text:"Top 100 por valor · amostra enviada pelo usuário. Produtos e totais precisam de validação integral antes de análises automatizadas.",date:"Período conforme relatório original",branch:base.branch},
  "top-quantity":{text:"Top 100 por quantidade · amostra enviada pelo usuário. Unidades de medida variam entre UN e KG.",date:"Período conforme relatório original",branch:base.branch},
  "ticket":{text:"Ticket Médio / Preço de Vendas por Quantidade · filtro Todos · período Outubro. Arquivo de produtos enviado pelo usuário; campos de preço e quantidade disponíveis para consulta.",date:"Outubro de 2026",branch:base.branch},
- "sales-group":{text:"Vendas por grupo · acumulada do mês de Outubro\nPADARIA: R$ 84.118,52\nLANCHONETE: R$ 35.628,96\nBEBIDAS: R$ 20.353,72\nCONFEITARIA: R$ 19.984,70\nFRANGOS: R$ 12.488,00\nLATICINIOS: R$ 11.354,87\nFRIOS PARA FATIAR: R$ 8.870,54\nBOMBONIERE: R$ 2.974,95\nMERCEARIA: R$ 2.271,32\nLEITE: R$ 1.182,70\nSALGADOS FRITOS: R$ 1.161,12\nGERAL: R$ 511,97\nIFOOD: R$ 25,90\nCONGELADOS: R$ 18,24",date:"Outubro de 2026",branch:base.branch},
+ "sales-group":{text:"Relatório 12 · Vendas por grupo · acumulada do mês de Outubro · Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nPADARIA · Total R$: 84.880,92 · Quantidade: 7.328,030 · Preço médio: R$ 11,58\nLANCHONETE · Total R$: 35.765,24 · Quantidade: 4.623,956 · Preço médio: R$ 7,73\nBEBIDAS · Total R$: 20.519,72 · Quantidade: 3.123 · Preço médio: R$ 6,57\nCONFEITARIA · Total R$: 20.166,91 · Quantidade: 2.172,910 · Preço médio: R$ 9,28\nFRANGOS · Total R$: 12.488,00 · Quantidade: 266 · Preço médio: R$ 46,95\nLATICINIOS · Total R$: 11.413,74 · Quantidade: 268,670 · Preço médio: R$ 42,48\nFRIOS PARA FATIAR · Total R$: 8.918,69 · Quantidade: 184,420 · Preço médio: R$ 48,36\nBOMBONIERE · Total R$: 3.022,85 · Quantidade: 940 · Preço médio: R$ 3,22\nMERCEARIA · Total R$: 2.275,12 · Quantidade: 290 · Preço médio: R$ 7,85\nLEITE · Total R$: 1.182,70 · Quantidade: 155 · Preço médio: R$ 7,63\nSALGADOS FRITOS · Total R$: 1.173,72 · Quantidade: 998 · Preço médio: R$ 1,18\nGERAL · Total R$: 514,37 · Quantidade: 4.389 · Preço médio: R$ 0,12\nIFOOD · Total R$: 25,90 · Quantidade: 3 · Preço médio: R$ 8,63\nCONGELADOS · Total R$: 18,24 · Quantidade: 0,380 · Preço médio: R$ 48,00",date:"Outubro de 2026 · Relatório 12",branch:base.branch},
  "products-group":{text:"Relatório 13 · Venda de produto por grupo · grupo Todos. Total informado no fechamento do relatório: R$ 181.343,07. Top 10 por faturamento, excluindo embalagens: Pão francês R$ 41.920,81; Pão de queijo R$ 10.048,36; Frango assado R$ 8.372,00; Queijo prato R$ 4.889,77; Muçarela R$ 4.333,10; Frango assado c/ batatas R$ 4.116,00; Presunto Sadia R$ 4.091,53; Combo pão de queijo + Guaravita R$ 3.542,00; Mortadela defumada Ouro Perdigão R$ 3.482,87; Salgados unidade R$ 2.988,00. Sacolas excluídas da lista de produção.",date:"Período conforme relatório original",branch:base.branch}
 };
 let selectedType="sale-month";
@@ -215,11 +215,7 @@ const groupSales=[
  {name:'IFOOD',value:25.90,quantity:3,average:8.63},
  {name:'CONGELADOS',value:18.24,quantity:0.380,average:48.00}
 ];
-// Base de comparação deste painel: soma dos grupos do relatório 12.
-// Ela não substitui o total do caixa, pois há uma diferença a conciliar.
 const monthlyRevenue=202366.12;
-const groupReportTotal=202366.12;
-const groupReportVsDashboard=-741.87;
 function renderGroupBars(){
  const sorted=[...groupSales].sort((a,b)=>b.value-a.value);
  const max=sorted[0].value;
@@ -302,7 +298,7 @@ function applyFilters(){
    }
    setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
  }else{
-   setText('filterStatus',selectedType==='sales-group'?'Relatório 12: faturamento e participação de cada grupo. Valores disponíveis vêm de uma consulta anterior e precisam ser atualizados com o relatório 12 mais recente.':selectedType==='sale-month'?'Exibindo o resumo mensal validado de 26/10/2026. A participação por grupo abaixo vem de um relatório anterior.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
+   setText('filterStatus',selectedType==='sales-group'?'Relatório 12 atualizado: faturamento, quantidade e preço médio por grupo. A soma dos grupos é R$ 202.366,12; confira a nota de conciliação abaixo.':selectedType==='sale-month'?'Resumo mensal de 26/10/2026. O Relatório 12 tem uma base de soma por grupos diferente e a divergência está sinalizada no painel.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
    if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
@@ -330,7 +326,7 @@ document.getElementById('applyBtn').onclick=()=>{
  }
  modal.classList.remove('open');applyFilters();toast('Relatório importado para consulta.');
 };
-document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters()});
+document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group'){renderGroupBars();setText('filterStatus','Relatório 12 atualizado · 14 grupos · outubro acumulado. Clique em qualquer grupo para abrir seus indicadores.');}else if(selectedType==='products-group'){setText('filterStatus','Relatório 13 · Top 10 por faturamento, sem embalagens. Os demais relatórios textuais mostram o conteúdo importado.');}});
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
 document.getElementById('branchFilter').addEventListener('change',applyFilters);
