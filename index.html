@@ -144,7 +144,7 @@
     </article>
   </section>
   <section class="panels insight-panels">
-    <div class="panel"><div class="panel-heading"><div><h3>Participação por grupo</h3><div class="panel-sub">Acumulado de outubro · % do faturamento geral</div></div><span class="tag">RELATÓRIO 12</span></div><div id="groupBars" class="rank-list"></div><div class="showcase-foot">Os percentuais abaixo usam o relatório de grupos anterior, cuja base era R$ 200.869,65. O resumo mensal foi atualizado depois para R$ 201.624,25. Percentuais indicativos até atualizar também o relatório 12.</div></div>
+    <div class="panel"><div class="panel-heading"><div><h3>Participação por grupo</h3><div class="panel-sub">Acumulado de outubro · % do faturamento geral</div></div><span class="tag">RELATÓRIO 12</span></div><div id="groupBars" class="rank-list"></div><div class="showcase-foot">Relatório 12 · outubro acumulado. Percentuais calculados sobre a soma dos grupos (R$ 202.366,12). Essa soma difere do resumo mensal em R$ 741,87, diferença que precisa ser conciliada.</div></div>
     <div class="panel"><div class="panel-heading"><div><h3>Produtos que movem a produção</h3><div class="panel-sub">Objetivo: Top 10 por faturamento, excluindo itens de embalagem e apoio</div></div><span class="tag">PRODUÇÃO</span></div><div class="product-list">
       <div class="product-row"><span class="rank-num">01</span><div class="product-info"><strong>Pão francês</strong><span>1.677,469 kg</span></div><strong>R$ 41.920,81</strong></div>
       <div class="product-row"><span class="rank-num">02</span><div class="product-info"><strong>Pão de queijo</strong><span>159,562 kg</span></div><strong>R$ 10.048,36</strong></div>
@@ -218,8 +218,9 @@ const groupSales=[
 const monthlyRevenue=202366.12;
 function renderGroupBars(){
  const sorted=[...groupSales].sort((a,b)=>b.value-a.value);
+ const groupTotal=sorted.reduce((sum,g)=>sum+g.value,0);
  const max=sorted[0].value;
- document.getElementById('groupBars').innerHTML=sorted.map((g,i)=>`<div class="rank-item" role="button" tabindex="0" data-group="${g.name}" aria-label="Ver detalhes de ${g.name}"><div class="rank-line"><span>${i+1}. ${g.name}</span><strong>${money(g.value)}</strong><span class="share">${pct(g.value,monthlyRevenue)} do total</span></div><div class="rank-track"><div class="rank-fill" style="width:${(g.value/max*100).toFixed(1)}%;animation-delay:${i*.04}s"></div></div></div>`).join('');
+ document.getElementById('groupBars').innerHTML=sorted.map((g,i)=>`<div class="rank-item" role="button" tabindex="0" data-group="${g.name}" aria-label="Ver detalhes de ${g.name}"><div class="rank-line"><span>${i+1}. ${g.name}</span><strong>${money(g.value)}</strong><span class="share">${pct(g.value,groupTotal)} do total dos grupos</span></div><div class="rank-track"><div class="rank-fill" style="width:${(g.value/max*100).toFixed(1)}%;animation-delay:${i*.04}s"></div></div></div>`).join('');
  document.querySelectorAll('#groupBars [data-group]').forEach(el=>{
    const open=()=>{document.getElementById('groupDetailSelect').value=el.dataset.group;renderGroupDetail();document.querySelector('.group-detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});};
    el.addEventListener('click',open);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
@@ -280,8 +281,9 @@ function applyFilters(){
  const other=selectedType!=="sale-day" && selectedType!=="sale-month" && selectedType!=="sales-group";
  document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
-  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other);
-  document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',selectedType==='sales-group');
+  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
+  document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
+  document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
   document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other);
  document.getElementById('otherReportView').classList.toggle('active',other);
  if(other){
@@ -299,6 +301,7 @@ function applyFilters(){
    setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
  }else{
    setText('filterStatus',selectedType==='sales-group'?'Relatório 12 atualizado: faturamento, quantidade e preço médio por grupo. A soma dos grupos é R$ 202.366,12; confira a nota de conciliação abaixo.':selectedType==='sale-month'?'Resumo mensal de 26/10/2026. O Relatório 12 tem uma base de soma por grupos diferente e a divergência está sinalizada no painel.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
+   if(selectedType==='sales-group')renderGroupBars();
    if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
