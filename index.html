@@ -138,19 +138,18 @@
     </article>
     <article class="showcase panel">
       <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">DESTAQUE DE PRODUTO</div><h3>Quem puxa o faturamento?</h3></div><span class="showcase-icon">★</span></div>
-      <div class="showcase-number">Pão francês</div><div class="showcase-caption">R$ 4.160,11 · 1.664,635 kg no relatório de produtos</div>
+      <div class="showcase-number">Pão francês</div><div class="showcase-caption">R$ 41.600,11 · 1.664,635 kg no relatório de produtos</div>
       <div class="product-highlight"><span class="product-badge">01</span><div><strong>Produto essencial</strong><div class="showcase-caption">Cruzar faturamento e quantidade ajuda a enxergar os campeões da padaria.</div></div></div>
       <div class="showcase-foot">Amostra do relatório de produtos por grupo, conforme texto enviado.</div>
     </article>
   </section>
   <section class="panels insight-panels">
     <div class="panel"><div class="panel-heading"><div><h3>Participação por grupo</h3><div class="panel-sub">Acumulado de outubro · % do faturamento geral</div></div><span class="tag">RELATÓRIO 12</span></div><div id="groupBars" class="rank-list"></div><div class="showcase-foot">Os percentuais abaixo usam o relatório de grupos anterior, cuja base era R$ 200.869,65. O resumo mensal foi atualizado depois para R$ 201.624,25. Percentuais indicativos até atualizar também o relatório 12.</div></div>
-    <div class="panel"><div class="panel-heading"><div><h3>Produtos em evidência</h3><div class="panel-sub">Amostra do relatório 13 · códigos equivalentes consolidados</div></div><span class="tag">AMOSTRA</span></div><div class="product-list">
-      <div class="product-row"><span class="rank-num">01</span><div class="product-info"><strong>Sacola biodegradável</strong><span>4.169 un. · 2 códigos consolidados</span></div><strong>R$ 333,45</strong></div>
-      <div class="product-row"><span class="rank-num">02</span><div class="product-info"><strong>Pão francês</strong><span>1.664,635 kg</span></div><strong>R$ 41.600,11</strong></div>
+    <div class="panel"><div class="panel-heading"><div><h3>Produtos que movem a produção</h3><div class="panel-sub">Objetivo: Top 10 por faturamento, excluindo itens de embalagem e apoio</div></div><span class="tag">PRODUÇÃO</span></div><div class="product-list">
+      <div class="product-row"><span class="rank-num">01</span><div class="product-info"><strong>Pão francês</strong><span>1.664,635 kg</span></div><strong>R$ 41.600,11</strong></div>
+      <div class="product-row"><span class="rank-num">02</span><div class="product-info"><strong>Cafezinho</strong><span>1.016 un.</span></div><strong>R$ 4.572,00</strong></div>
       <div class="product-row"><span class="rank-num">03</span><div class="product-info"><strong>Pão suíço</strong><span>1.086 un.</span></div><strong>R$ 2.715,00</strong></div>
-      <div class="product-row"><span class="rank-num">04</span><div class="product-info"><strong>Cafezinho</strong><span>1.016 un.</span></div><strong>R$ 4.572,00</strong></div>
-    </div><div class="showcase-foot">Esta amostra não é um ranking por faturamento. A classificação dos dois principais produtos de cada grupo depende do detalhamento completo do relatório 13 por grupo.</div></div>
+    </div><div class="showcase-foot">Exibição parcial: estes são os 3 produtos relevantes com valores confirmados no material atual. Para completar o Top 10 por faturamento, preciso da lista completa do relatório 13. Sacola biodegradável foi excluída por não ser relevante para a produção.</div></div>
   </section>
   <section class="panel group-detail-panel">
     <div class="panel-heading"><div><h3>Os 2 produtos que mais contribuem em cada grupo</h3><div class="panel-sub">Cruzamento do relatório 12 com o relatório 13</div></div><span class="tag">CRUZAMENTO</span></div>
@@ -258,9 +257,11 @@ function applyFilters(){
  const period=document.getElementById('periodFilter').value;
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
- const other=selectedType!=="sale-day" && selectedType!=="sale-month";
- document.querySelector('.hero').classList.toggle('hidden-by-filter',other);
+ const other=selectedType!=="sale-day" && selectedType!=="sale-month" && selectedType!=="sales-group";
+ document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
+  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',selectedType==='sales-group');
+  document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',selectedType==='sales-group');
  document.getElementById('otherReportView').classList.toggle('active',other);
  if(other){
    setText('otherReportTitle',reportNames[selectedType]);
@@ -276,7 +277,7 @@ function applyFilters(){
    }
    setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
  }else{
-   setText('filterStatus',selectedType==='sale-month'?'Exibindo o resumo mensal validado de 26/10/2026. A participação por grupo abaixo vem de um relatório anterior.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
+   setText('filterStatus',selectedType==='sales-group'?'Relatório 12: faturamento e participação de cada grupo. Valores disponíveis vêm de uma consulta anterior e precisam ser atualizados com o relatório 12 mais recente.':selectedType==='sale-month'?'Exibindo o resumo mensal validado de 26/10/2026. A participação por grupo abaixo vem de um relatório anterior.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
    if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
