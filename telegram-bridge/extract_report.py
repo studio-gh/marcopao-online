@@ -71,12 +71,13 @@ def main() -> int:
 
     # Parse each named section independently so later "Total" fields
     # (for example, Totais de NF-es) cannot overwrite the sales total.
-    summary_match = re.search(
+    summaries = re.findall(
         r"Venda Acumulada do Mês.*?(?=Deseja visualizar os cartões\?|$)",
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
-    summary = summary_match.group(0) if summary_match else ""
+    # The Telegram export may contain multiple snapshots; use the latest one.
+    summary = summaries[-1] if summaries else ""
     if not summary:
         result["warnings"].append("Não encontrei o bloco de resumo mensal; confirme o formato da resposta.")
     else:
