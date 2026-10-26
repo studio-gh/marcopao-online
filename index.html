@@ -108,7 +108,7 @@
 
   <section class="panels">
     <div class="panel">
-      <h3>Como os clientes pagaram</h3><div class="panel-sub">Participação de cada forma no total recebido</div>
+      <h3>Formas de pagamento em destaque</h3><div class="panel-sub">TEF, dinheiro e PIX. POS Crédito, POS Débito e ticket também compõem o total.</div>
       <div class="pay-layout"><div class="donut" id="donut"><div class="donut-center"><strong id="donutTotal">R$ 201,62 mil</strong><span>total do relatório</span></div></div>
       <div class="legend">
         <div class="legend-row"><span class="swatch" style="background:var(--green2)"></span><span class="legend-name">TEF</span><span class="legend-val" id="legendTef">R$ 1.295,31</span></div>
@@ -171,7 +171,7 @@
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-const base={total:201624.25,cash:42613.28,pix:1290.22,tef:151866.53,coupons:12153,ticket:16.59,cancelCoupons:0,cancelItems:182101.86,branch:"MARCOPAO LANCHONETE E PANIFICACAO LTDA",date:"Outubro de 2026 · resumo às 15:50 de 26/10",imported:"26/10/2026 · 15:50"};
+const base={total:201624.25,cash:42613.28,pix:1290.22,tef:151866.53,posCredit:2659.30,posDebit:2514.16,ticketMethod:680.76,coupons:12153,ticket:16.59,cancelCoupons:0,cancelItems:182101.86,branch:"MARCOPAO LANCHONETE E PANIFICACAO LTDA",date:"Outubro de 2026 · resumo às 15:50 de 26/10",imported:"26/10/2026 · 15:50"};
 const reportNames={
  "sale-day":"Venda do dia","sale-month":"Venda acumulada do mês","top-value":"Top 100 por valor","top-quantity":"Top 100 por quantidade",
  "payable":"Contas a pagar","receivable":"Contas a receber","group-purchases":"Compras do grupo","purchases":"Compras",
@@ -232,10 +232,10 @@ function render(){
  document.getElementById('ticketBar').style.width=Math.min(100,data.ticket/15*100)+'%';
  document.getElementById('cancelBar').style.width=(data.coupons?Math.min(100,data.cancelCoupons/data.coupons*100):0)+'%';
  document.getElementById('cancelItemBar').style.width=(data.total?Math.min(100,data.cancelItems/data.total*100):0)+'%';
- const paySum=+(data.cash+data.pix+data.tef).toFixed(2);
+ const paySum=+(data.cash+data.pix+data.tef+(data.posCredit||0)+(data.posDebit||0)+(data.ticketMethod||0)).toFixed(2);
  setText('paymentCheck',Math.abs(paySum-data.total)<.02?'Confere':'Revisar');
  setText('ticketCheck',data.coupons&&Math.abs(data.total/data.coupons-data.ticket)<.02?'Confere':'Revisar');
- setText('dateCheck',data.date||'Não identificada');setText('reportPeriod','PERÍODO: VENDA DO DIA · '+(data.date?data.date.toUpperCase():'DATA NÃO IDENTIFICADA'));
+ setText('dateCheck',data.date||'Não identificada');setText('reportPeriod','PERÍODO: '+(selectedType==='sale-month'?'VENDA ACUMULADA DO MÊS':'VENDA DO DIA')+' · '+(data.date?data.date.toUpperCase():'DATA NÃO IDENTIFICADA'));
  setText('branchTag',data.branch||'FILIAL NÃO IDENTIFICADA');setText('importInfo','Importado para análise em '+(data.imported||'data não registrada')+' · '+(data.date?'Referência: '+data.date:'Data original não informada'));
 }
 function parseMoney(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseFloat(m[1].replace(/\./g,'').replace(',','.'))}return fallback}
@@ -244,7 +244,7 @@ function parseReport(text,date){
  const d={...data};
  d.cash=parseMoney(text,[/Dinheiro\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cash);
  d.pix=parseMoney(text,[/PIX\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.pix);
- d.tef=parseMoney(text,[/TEF\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.tef);
+ d.tef=parseMoney(text,[/TEF\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.tef);\n  d.posCredit=parseMoney(text,[/POS Crédito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posCredit||0);\n  d.posDebit=parseMoney(text,[/POS Débito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posDebit||0);\n  d.ticketMethod=parseMoney(text,[/TICKET\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.ticketMethod||0);
  d.total=parseMoney(text,[/Venda Total do dia\s*:\s*R\$\s*([\d.]+,\d{2})/i,/Total\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.total);
  d.coupons=parseCount(text,[/Quantidades?\s+de\s+Cupons\s*:\s*([\d.]+)/i],d.coupons);
  d.ticket=parseMoney(text,[/Ticket Médio\s*:\s*R?\$?\s*([\d.]+,\d{2})/i],d.coupons?d.total/d.coupons:d.ticket);
@@ -258,7 +258,7 @@ function applyFilters(){
  const period=document.getElementById('periodFilter').value;
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
- const other=selectedType!=="sale-day";
+ const other=selectedType!=="sale-day" && selectedType!=="sale-month";
  document.querySelector('.hero').classList.toggle('hidden-by-filter',other);
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
  document.getElementById('otherReportView').classList.toggle('active',other);
@@ -276,7 +276,7 @@ function applyFilters(){
    }
    setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
  }else{
-   setText('filterStatus','Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados que estejam identificados no texto importado.');
+   setText('filterStatus',selectedType==='sale-month'?'Exibindo o resumo mensal validado de 26/10/2026. A participação por grupo abaixo vem de um relatório anterior.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
    if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
    else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
