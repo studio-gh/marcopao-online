@@ -215,8 +215,11 @@ function renderGroupDetail(){
  const name=document.getElementById('groupDetailSelect').value;
  const group=groupSales.find(g=>g.name===name);
  if(!group)return;
- document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação no faturamento geral</span><br><strong>${pct(group.value,monthlyRevenue)}</strong></div>`;
- document.getElementById('groupTopProducts').innerHTML=[1,2].map(n=>`<div class="group-top-empty"><strong>${n===1?'1º produto líder':'2º produto líder'} · ${name}</strong>O faturamento por produto dentro deste grupo ainda precisa ser confirmado no relatório detalhado. Nenhum produto foi estimado.</div>`).join('');
+ const groupedSalesTotal=groupSales.reduce((sum,g)=>sum+g.value,0);
+ document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação no faturamento geral</span><br><strong>${pct(group.value,monthlyRevenue)}</strong></div><div><span>Participação sobre a soma dos grupos</span><br><strong>${pct(group.value,groupedSalesTotal)}</strong></div>`;
+ document.getElementById('groupTopProducts').innerHTML=[1,2].map(n=>`<div class="group-top-empty"><strong>${n===1?'1º produto líder':'2º produto líder'} · ${name}</strong><span>O ranking por faturamento será preenchido quando houver dados detalhados por produto e grupo no mesmo período e filial.</span></div>`).join('');
+ const foot=document.getElementById('groupDetailFoot');
+ if(foot)foot.textContent='A soma dos grupos difere do faturamento mensal informado em R$ 75,86. Os percentuais são preliminares até a conciliação e o relatório detalhado de produtos por grupo.';
 }
 function render(){
  setText('heroTotal',money(data.total));setText('heroTicket',money(data.ticket));setText('coupons',num(data.coupons));setText('cash',money(data.cash));setText('pix',money(data.pix));setText('tef',money(data.tef));
