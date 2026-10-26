@@ -1,0 +1,9 @@
+.env
+.env.*
+*.session
+*.session-journal
+telegram_session/
+exports/
+raw_reports/
+__pycache__/
+.venv/
