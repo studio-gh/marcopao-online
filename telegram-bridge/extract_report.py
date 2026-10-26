@@ -69,10 +69,10 @@ def main() -> int:
         "status": "review_required",
     }
 
-    # Extract fields from the monthly-sales summary message only, avoiding
-    # duplicate "Total" fields in the card breakdowns.
+    # Parse each named section independently so later "Total" fields
+    # (for example, Totais de NF-es) cannot overwrite the sales total.
     summary_match = re.search(
-        r"Venda Acumulada do Mês.*?(?=Deseja visualizar os cartões\?|$)",
+        r"Venda Acumulada do Mês.*?(?=Deseja visualizar os cartões\\?|$)",
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -80,15 +80,54 @@ def main() -> int:
     if not summary:
         result["warnings"].append("Não encontrei o bloco de resumo mensal; confirme o formato da resposta.")
     else:
-        for match in FIELD_RE.finditer(summary):
-            label, _currency, raw_value = match.groups()
-            key = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
-            try:
-                value = br_number(raw_value)
-            except InvalidOperation:
-                result["warnings"].append(f"Valor inválido para {label}: {raw_value}")
-                continue
-            result["metrics"][key] = json_number(value)
+        def section(pattern: str) -> str:
+            match = re.search(pattern, summary, flags=re.IGNORECASE | re.DOTALL)
+            return match.group(1) if match else ""
+
+        sales = section(r"Total de vendas nos Pdvs(.*?)(?=Totais Cancelamentos nos Pdvs|$)")
+        cancellations = section(r"Totais Cancelamentos nos Pdvs(.*?)(?=Totais de Nf-es|$)")
+        field_patterns = [
+            ("dinheiro", r"Dinheiro\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("pix", r"PIX\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("pos_credito", r"POS Crédito\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("pos_debito", r"POS Débito\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("tef", r"TEF\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("ticket", r"TICKET\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("total", r"^\\s*Total\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("quantidade_de_cupons", r"Quantidades? de Cupons\\s*:\\s*(\\d+)"),
+            ("ticket_medio", r"Ticket Médio\\s*:\\s*([\\d.]+,\\d{2})"),
+        ]
+        for key, pattern in field_patterns:
+            match = re.search(pattern, sales, flags=re.IGNORECASE | re.MULTILINE)
+            if match:
+                try:
+                    result["metrics"][key] = json_number(br_number(match.group(1)))
+                except InvalidOperation:
+                    result["warnings"].append(f"Valor inválido para {key}: {match.group(1)}")
+
+        cancel_patterns = [
+            ("qtd_de_cupons_cancelados", r"Qtd de Cupons cancelados\\s*:\\s*(\\d+)"),
+            ("valor_cupons_cancel", r"Valor Cupons canc\\.\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("qtd_venda_nao_concluida", r"Qtd Venda não Concluida\\s*:\\s*(\\d+)"),
+            ("venda_nao_concluida", r"Venda não Concluida\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+            ("vlr_total_item_canc", r"Vlr Total Item Canc\\.\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})"),
+        ]
+        for key, pattern in cancel_patterns:
+            match = re.search(pattern, cancellations, flags=re.IGNORECASE)
+            if match:
+                try:
+                    result["metrics"][key] = json_number(br_number(match.group(1)))
+                except InvalidOperation:
+                    result["warnings"].append(f"Valor inválido para {key}: {match.group(1)}")
+
+        day_total = re.search(r"Venda Total do dia\\s*:\\s*R?\\$?\\s*([\\d.]+,\\d{2})", summary, re.IGNORECASE)
+        if day_total:
+            result["metrics"]["venda_total_do_dia"] = json_number(br_number(day_total.group(1)))
+
+        required = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket", "total", "quantidade_de_cupons"]
+        missing = [key for key in required if key not in result["metrics"]]
+        if missing:
+            result["warnings"].append("Campos principais não encontrados: " + ", ".join(missing))
 
     # Parse both card breakdowns by section. Keep labels as returned by the bot.
     card_blocks = re.findall(
