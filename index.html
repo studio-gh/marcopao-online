@@ -260,8 +260,9 @@ function applyFilters(){
  const other=selectedType!=="sale-day" && selectedType!=="sale-month" && selectedType!=="sales-group";
  document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
-  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',selectedType==='sales-group');
-  document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',selectedType==='sales-group');
+  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other);
+  document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',selectedType==='sales-group');
+  document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other);
  document.getElementById('otherReportView').classList.toggle('active',other);
  if(other){
    setText('otherReportTitle',reportNames[selectedType]);
