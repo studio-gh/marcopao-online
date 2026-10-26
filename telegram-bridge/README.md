@@ -35,4 +35,16 @@ This bridge is the proposed local connector between the authorized Telegram acco
 
 ## Current status
 
-Planning only. This document does not claim a Telegram connection exists or that any report has been fetched automatically.
+- `monitorbot-readonly.yml` manually verifies that the Telegram session can access `@MonitorMarcopaoBot`; it does not send messages or fetch reports.
+- `monitorbot-inspect.yml` manually inspects a small sample of the existing conversation and button labels. It does not send messages, print full report bodies, or write to Supabase.
+- Next step: run the inspection workflow and use its output to map the bot's actual menu sequence before implementing a controlled request for one monthly report.
+- No report has yet been automatically requested or imported by these workflows.
+
+## Run the read-only inspection
+
+1. Open the repository's **Actions** tab.
+2. Select **Inspect Monitorbot conversation (read-only)**.
+3. Click **Run workflow** and confirm the `main` branch.
+4. Open the completed run, then the `inspect-telegram` job, and share the visible log output. The script intentionally truncates message previews to reduce exposure of sales data.
+
+Do not paste Telegram session strings, API hashes, login codes, or other secrets into chat or logs.
