@@ -200,13 +200,26 @@ const num=n=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n||
 const pct=(n,t)=>t?((n/t)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'0%';
 function setText(id,val){document.getElementById(id).textContent=val}
 const groupSales=[
- {name:'PADARIA',value:84118.52},{name:'LANCHONETE',value:35628.96},{name:'BEBIDAS',value:20353.72},
- {name:'CONFEITARIA',value:19984.70},{name:'FRANGOS',value:12488.00},{name:'LATICINIOS',value:11354.87},
- {name:'FRIOS PARA FATIAR',value:8870.54},{name:'BOMBONIERE',value:2974.95},{name:'MERCEARIA',value:2271.32},
- {name:'LEITE',value:1182.70},{name:'SALGADOS FRITOS',value:1161.12},{name:'GERAL',value:511.97},
- {name:'IFOOD',value:25.90},{name:'CONGELADOS',value:18.24}
+ {name:'PADARIA',value:84880.92,quantity:7328.030,average:11.58},
+ {name:'LANCHONETE',value:35765.24,quantity:4623.956,average:7.73},
+ {name:'BEBIDAS',value:20519.72,quantity:3123,average:6.57},
+ {name:'CONFEITARIA',value:20166.91,quantity:2172.910,average:9.28},
+ {name:'FRANGOS',value:12488.00,quantity:266,average:46.95},
+ {name:'LATICINIOS',value:11413.74,quantity:268.670,average:42.48},
+ {name:'FRIOS PARA FATIAR',value:8918.69,quantity:184.420,average:48.36},
+ {name:'BOMBONIERE',value:3022.85,quantity:940,average:3.22},
+ {name:'MERCEARIA',value:2275.12,quantity:290,average:7.85},
+ {name:'LEITE',value:1182.70,quantity:155,average:7.63},
+ {name:'SALGADOS FRITOS',value:1173.72,quantity:998,average:1.18},
+ {name:'GERAL',value:514.37,quantity:4389,average:0.12},
+ {name:'IFOOD',value:25.90,quantity:3,average:8.63},
+ {name:'CONGELADOS',value:18.24,quantity:0.380,average:48.00}
 ];
-const monthlyRevenue=200869.65;
+// Base de comparação deste painel: soma dos grupos do relatório 12.
+// Ela não substitui o total do caixa, pois há uma diferença a conciliar.
+const monthlyRevenue=202366.12;
+const groupReportTotal=202366.12;
+const groupReportVsDashboard=-741.87;
 function renderGroupBars(){
  const sorted=[...groupSales].sort((a,b)=>b.value-a.value);
  const max=sorted[0].value;
@@ -222,10 +235,14 @@ function renderGroupDetail(){
  const group=groupSales.find(g=>g.name===name);
  if(!group)return;
  const groupedSalesTotal=groupSales.reduce((sum,g)=>sum+g.value,0);
- document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação no faturamento geral</span><br><strong>${pct(group.value,monthlyRevenue)}</strong></div><div><span>Participação sobre a soma dos grupos</span><br><strong>${pct(group.value,groupedSalesTotal)}</strong></div>`;
+ const sorted=[...groupSales].sort((a,b)=>b.value-a.value);
+ const topThree=sorted.slice(0,3).reduce((sum,g)=>sum+g.value,0);
+ const bestAverage=[...groupSales].sort((a,b)=>b.average-a.average)[0];
+ const lowestAverage=[...groupSales].sort((a,b)=>a.average-b.average)[0];
+ document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação na soma dos grupos</span><br><strong>${pct(group.value,groupedSalesTotal)}</strong></div><div><span>Preço médio informado</span><br><strong>${money(group.average)}</strong></div><div><span>Quantidade informada</span><br><strong>${num(group.quantity)}</strong></div><div><span>Concentração dos 3 maiores grupos</span><br><strong>${pct(topThree,groupedSalesTotal)}</strong><small>PADARIA, LANCHONETE e BEBIDAS</small></div><div><span>Maior preço médio informado</span><br><strong>${bestAverage.name}</strong><small>${money(bestAverage.average)} por unidade de medida do relatório</small></div><div><span>Menor preço médio informado</span><br><strong>${lowestAverage.name}</strong><small>${money(lowestAverage.average)} por unidade de medida do relatório</small></div>`;
  document.getElementById('groupTopProducts').innerHTML=[1,2].map(n=>`<div class="group-top-empty"><strong>${n===1?'1º produto líder':'2º produto líder'} · ${name}</strong><span>O ranking por faturamento será preenchido quando houver dados detalhados por produto e grupo no mesmo período e filial.</span></div>`).join('');
  const foot=document.getElementById('groupDetailFoot');
- if(foot)foot.textContent='A soma dos grupos difere do faturamento mensal informado em R$ 75,86. Os percentuais são preliminares até a conciliação e o relatório detalhado de produtos por grupo.';
+ if(foot)foot.textContent='Fonte: Relatório 12 · acumulado de outubro. A soma dos grupos é R$ 202.366,12. Ela supera o resumo mensal do dashboard (R$ 201.624,25) em R$ 741,87; por isso, os percentuais deste painel usam a soma dos grupos como base e a diferença precisa ser conciliada. Quantidades de grupos diferentes podem usar unidades distintas.';
 }
 function render(){
  setText('heroTotal',money(data.total));setText('heroTicket',money(data.ticket));setText('coupons',num(data.coupons));setText('cash',money(data.cash));setText('pix',money(data.pix));setText('tef',money(data.tef));
