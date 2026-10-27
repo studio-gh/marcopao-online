@@ -133,14 +133,16 @@ def parse_totals(raw):
     if "cupons" not in totals:
         warnings.append("Quantidade de cupons não foi identificada.")
     payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
-    if all(key in totals for key in payment_keys) and "total" in totals:
+    card_keys = ["pos_credito", "pos_debito", "tef"]
+    missing_cards = [key for key in card_keys if key not in totals]
+    totals["payment_methods_included"] = [key for key in payment_keys if key in totals]
+    totals["card_sales_included"] = not missing_cards
+    if missing_cards:
+        warnings.append("Detalhes de cartão incompletos: faltando " + ", ".join(missing_cards) + ".")
+    if "total" in totals and all(key in totals for key in payment_keys):
         payment_sum = round(sum(totals[key] for key in payment_keys), 2)
         totals["payment_methods_sum"] = payment_sum
         totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
-        totals["payment_methods_included"] = payment_keys
-        totals["card_sales_included"] = ("pos_credito" in totals and "pos_debito" in totals and "tef" in totals)
-        if not totals["card_sales_included"]:
-            warnings.append("Detalhes de cartão incompletos: POS Crédito, POS Débito e TEF precisam ser confirmados.")
         if abs(totals["payment_reconciliation_diff"]) > 0.02:
             warnings.append("Soma dos meios de pagamento difere do total informado.")
     totals["validation_warnings"] = warnings
