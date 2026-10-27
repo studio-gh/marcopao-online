@@ -565,10 +565,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         query = urlencode(filters, safe=".,")
         supersede_request = urllib.request.Request(
             f"{base_url}/rest/v1/report_imports?{query}",
-            data=json.dumps({
-                "status": "superseded",
-                "validation_notes": ["Superseded by a newer Telegram snapshot in the same report scope; retained for audit history."],
-            }, ensure_ascii=False).encode("utf-8"),
+            data=json.dumps({"status": "superseded"}, ensure_ascii=False).encode("utf-8"),
             method="PATCH",
             headers={
                 "apikey": service_key,
