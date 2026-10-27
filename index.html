@@ -677,15 +677,13 @@ document.getElementById('applyBtn').onclick=()=>{
    const metrics=parseDayMetrics(text);
    const iso=reportDay(text,date);
    if(metrics.total===null||!iso){toast('Para visão diária, informe uma data e confirme o total do relatório.');return}
-   const record={date:iso,branch:metrics.branch||base.branch,metrics,rawText:text,source:'manual_import',savedAt:new Date().toISOString()};
-   dailyReports=dailyReports.filter(x=>!(x.date===record.date&&x.branch===record.branch));
-   dailyReports.push(record);
-   localStorage.setItem('marcopao.dailyReports',JSON.stringify(dailyReports));
-   importedReports[selectedType]={text,date:iso,branch:record.branch};
+   // Manual imports are not trusted operational data. Keep them out of daily KPIs until reviewed in Supabase.
+   importedReports[selectedType]={text,date:iso,branch:metrics.branch||base.branch,status:'needs_review'};
+   toast('Texto recebido apenas para conferência. Não foi incluído nos indicadores oficiais; a validação deve ocorrer antes de publicar.');
  }else{
    importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\\n/)[0]?.trim()||''};
  }
- modal.classList.remove('open');applyFilters();toast('Relatório importado nesta sessão do navegador.');
+ modal.classList.remove('open');applyFilters();if(selectedType!=='sale-day')toast('Texto recebido para conferência, sem alterar os indicadores oficiais.');
 };
 document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group')renderGroupBars();});
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
@@ -771,8 +769,10 @@ window.setSupabaseDailyReports = function(rows){
  remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
  const latestPerDay=new Map();for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
  const uniqueDailyReports=[...latestPerDay.values()];
- if(uniqueDailyReports.length){dailyReports=uniqueDailyReports;localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));}
- else{try{dailyReports=JSON.parse(localStorage.getItem('marcopao.dailyReports')||'[]')}catch(_){dailyReports=[]}}
+ // Only database rows explicitly validated may enter operational daily comparisons.
+ // Never fall back to browser cache: it may contain stale or manually imported unreviewed data.
+ dailyReports=uniqueDailyReports;
+ localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));
  if(selectedType==='sale-day')applyFilters();
 };
 
