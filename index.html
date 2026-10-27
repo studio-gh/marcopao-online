@@ -328,21 +328,21 @@ function render(){
 function parseMoney(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseFloat(m[1].replace(/\./g,'').replace(',','.'))}return fallback}
 function parseCount(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseInt(m[1].replace(/\./g,''),10)}return fallback}
 function parseMonthlyMetrics(text){
- const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
- const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\\./g,""),10):null};
+ const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\./g,"").replace(",", ".")):null};
+ const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\./g,""),10):null};
  return {
-  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  cash:moneyMatch(/Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  pix:moneyMatch(/PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  posCredit:moneyMatch(/POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  posDebit:moneyMatch(/POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  tef:moneyMatch(/TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  ticketMethod:moneyMatch(/TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  coupons:intMatch(/Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)/i),
-  ticket:moneyMatch(/Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  cancelCoupons:intMatch(/Qtd de Cupons cancelados\\s*:?\\s*([\\d.]+)/i),
-  cancelItems:moneyMatch(/Vlr Total Item Canc\\.\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  branch:((text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]||"").split(/\\r?\\n/)[0].trim()
+  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  cash:moneyMatch(/Dinheiro\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  pix:moneyMatch(/PIX\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  posCredit:moneyMatch(/POS Crédito\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  posDebit:moneyMatch(/POS Débito\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  tef:moneyMatch(/TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  ticketMethod:moneyMatch(/TICKET\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  coupons:intMatch(/Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)/i),
+  ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  cancelCoupons:intMatch(/Qtd de Cupons cancelados\s*:?\s*([\d.]+)/i),
+  cancelItems:moneyMatch(/Vlr Total Item Canc\.\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
  };
 }
 function showMonthlyReport(row){
