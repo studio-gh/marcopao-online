@@ -65,6 +65,37 @@ Quantidades de Cupons: 8
         self.assertNotIn("total", totals)
         self.assertTrue(any("Total de vendas" in warning for warning in warnings))
 
+    def test_missing_card_methods_are_flagged_even_when_total_exists(self):
+        raw = """Venda do Dia
+Total de vendas nos Pdvs
+Dinheiro: R$ 100,00
+PIX: R$ 25,00
+Total: R$ 125,00
+Quantidades de Cupons: 5
+"""
+        totals, warnings = parse_totals(raw)
+        self.assertFalse(totals["card_sales_included"])
+        self.assertNotIn("payment_methods_sum", totals)
+        self.assertTrue(any("Detalhes de cartão incompletos" in warning for warning in warnings))
+
+    def test_cards_are_included_in_payment_reconciliation(self):
+        raw = """Venda do Dia
+Total de vendas nos Pdvs
+Dinheiro: R$ 100,00
+PIX: R$ 25,00
+POS Crédito: R$ 10,00
+POS Débito: R$ 5,00
+TEF: R$ 60,00
+TICKET: R$ 0,00
+Total: R$ 200,00
+Quantidades de Cupons: 10
+"""
+        totals, warnings = parse_totals(raw)
+        self.assertTrue(totals["card_sales_included"])
+        self.assertEqual(totals["payment_methods_sum"], 200.0)
+        self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
+        self.assertEqual(warnings, [])
+
 
 if __name__ == "__main__":
     unittest.main()
