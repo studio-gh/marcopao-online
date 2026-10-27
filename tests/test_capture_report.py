@@ -16,6 +16,7 @@ daily_report_date_mismatch = MODULE.daily_report_date_mismatch
 report_type_for_option = MODULE.report_type_for_option
 monthly_period = MODULE.monthly_period
 stable_report_identity = MODULE.stable_report_identity
+report_content_hash = MODULE.report_content_hash
 find_report_payload = MODULE.find_report_payload
 report_title_match = MODULE.report_title_match
 is_report_menu_message = MODULE.is_report_menu_message
@@ -149,6 +150,13 @@ Quantidades de Cupons: 10
     def test_monthly_period_is_dynamic_not_hardcoded(self):
         self.assertEqual(monthly_period("2026-10-27"), "2026-10")
         self.assertEqual(monthly_period("2027-01-02"), "2027-01")
+
+    def test_report_content_hash_distinguishes_revisions(self):
+        first = report_content_hash("Venda do Dia Total: R$ 100,00")
+        same = report_content_hash("Venda do Dia Total: R$ 100,00")
+        revised = report_content_hash("Venda do Dia Total: R$ 110,00")
+        self.assertEqual(first, same)
+        self.assertNotEqual(first, revised)
 
     def test_daily_identity_is_stable_across_report_revisions(self):
         first = stable_report_identity("sale_day", "MARCOPAO", "2026-10-27", "2026-10-27")
