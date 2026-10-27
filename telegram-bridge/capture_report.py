@@ -723,13 +723,17 @@ def is_main_menu(text):
 
 # [collect-report:ticket_average] Retry ticket average after menu recovery fix.
 def is_report_menu_message(message):
-    """Recognize the report keyboard even when Bellabyte repeats its branch welcome text."""
+    """Recognize the numbered report keyboard without confusing it with branch selection."""
     text = message.message or ""
+    low = norm(text).lower()
+    if "qual filial deseja se conectar" in low or "digite qual filial deseja se conectar" in low:
+        return False
     if is_main_menu(text):
         return True
     labels = {label.strip().lower() for label in buttons(message)}
     required = {"1", "2", "3", "4", "10", "12", "13"}
-    return required.issubset(labels) and "relatório bellabyte" in norm(text).lower()
+    selected_branch_menu = "sua filial é" in low or "sua filial e" in low
+    return required.issubset(labels) and "relatório bellabyte" in low and selected_branch_menu
 
 def daily_report_date_mismatch(text, mode):
     """Detect the known dangerous case: 'today' sales returned when yesterday was requested."""
