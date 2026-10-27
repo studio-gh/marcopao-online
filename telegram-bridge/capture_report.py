@@ -469,23 +469,76 @@ def report_period(report_type, queried_at, requested_period):
         return start, end, end
     return requested_period, requested_period, requested_period
 
+def report_title_match(text, report_type):
+    low = norm(text).lower()
+    marker_map = {
+        "top_value": ("top 100 valor", "top 100 por valor", "maiores vendas por valor"),
+        "top_quantity": ("top 100 quantidade", "top 100 por quantidade", "maiores vendas por quantidade"),
+        "ticket_average": ("ticket médio preço vendas por quantidade", "ticket medio preço vendas por quantidade", "ticket médio preço", "ticket medio preço"),
+        "sales_by_group": ("total vendas por grupo", "total de vendas por grupo", "vendas por grupo"),
+        "products_by_group": ("vendas de produto por grupo", "venda de produto por grupo", "produtos por grupo"),
+    }
+    if report_type == "sale_day":
+        return any(marker in low for marker in ("venda total do dia", "total de vendas nos pdvs", "venda do dia", "venda de ontem"))
+    if report_type == "monthly_sales":
+        return "venda acumulada do mês" in low
+    return any(marker in low for marker in marker_map.get(report_type, ()))
+
 def matches_report_type(text, report_type):
     low = norm(text).lower()
-    if not is_report_body(text):
-        return False
     if report_type == "sale_day":
         return matches_report(text, "daily_yesterday")
     if report_type == "monthly_sales":
         return "venda acumulada do mês" in low and ("total de vendas nos pdvs" in low or "venda total do dia" in low)
-    marker_map = {
-        "top_value": ("top 100 valor", "top 100 por valor", "maiores vendas por valor"),
-        "top_quantity": ("top 100 quantidade", "top 100 por quantidade", "maiores vendas por quantidade"),
-        "ticket_average": ("ticket médio preço vendas por quantidade", "ticket médio preço", "ticket médio por produto"),
-        "sales_by_group": ("total vendas por grupo", "total de vendas por grupo", "vendas por grupo"),
-        "products_by_group": ("vendas de produto por grupo", "venda de produto por grupo", "produtos por grupo"),
-    }
-    markers = marker_map.get(report_type, ())
-    return any(marker in low for marker in markers)
+    if not is_report_body(text):
+        return False
+    return report_title_match(text, report_type)
+
+def report_message_has_data(text):
+    return bool(re.search(
+        r"R\$\s*[\d.]+,\d{2}|Quantidade\s*:|Preço\s*:|Preço\s+(?:Atual|M[eé]dio)|^\s*\d+\s*:\s+\S",
+        text or "", re.IGNORECASE | re.MULTILINE
+    ))
+
+def find_report_payload(replies, report_type):
+    """Join all Telegram message chunks belonging to one requested report."""
+    start_index = None
+    for index, message in enumerate(replies):
+        text = message.message or ""
+        labels = [label.lower() for label in buttons(message)]
+        # These are selection prompts, not report content. Advance through them before searching.
+        if report_type in {"ticket_average", "products_by_group"} and "todos" in labels and not report_message_has_data(text):
+            continue
+        if report_title_match(text, report_type) and (report_message_has_data(text) or report_type in {"sales_by_group", "products_by_group"}):
+            start_index = index
+            break
+        if matches_report_type(text, report_type):
+            start_index = index
+            break
+    if start_index is None:
+        return None, None
+
+    fragments = []
+    first_message = replies[start_index]
+    for message in replies[start_index:]:
+        text = norm(message.message or "")
+        low = text.lower()
+        if not text:
+            continue
+        if any(prompt in low for prompt in (
+            "deseja visualizar os cartões", "deseja visualizar os cartoes",
+            "você precisa se logar", "voce precisa se logar",
+            "qual filial deseja se conectar", "digite qual filial deseja se conectar",
+        )):
+            break
+        if report_title_match(text, report_type) or report_message_has_data(text) or matches_report_type(text, report_type):
+            fragments.append(text)
+            continue
+        if fragments:
+            break
+    if not fragments:
+        return None, None
+    return first_message, "\n\n".join(fragments)
 
 def report_target_period(report_type, now):
     if report_type == "sale_day":
@@ -569,33 +622,36 @@ async def wait_for_report(client, entity, mode, after_id, timeout=30):
     return await search_recent_report(client, entity, mode, after_id=after_id)
 
 async def recover_menu(client, entity, current):
-    """Use the bot-documented 0 reset if conversation is not at a known menu."""
+    """Reset safely, complete Bellabyte login and confirm branch/menu before selecting reports."""
+    if current is None:
+        current = await latest_incoming(client, entity)
+    if current is None:
+        raise RuntimeError("No incoming Monitorbot messages are available.")
+
+    current = await ensure_bellabyte_login(client, entity, current)
+    current = await latest_incoming(client, entity) or current
     text = norm(current.message)
     low = text.lower()
     if is_main_menu(text):
         return current
-    if "qual filial deseja se conectar" in low or "digite qual filial" in low:
-        pass
-    else:
-        reset, replies = await send_choice(client, entity, current, "0", "reset stale conversation to branch selection")
+
+    branch_prompt = "qual filial deseja se conectar" in low or "digite qual filial" in low
+    if not branch_prompt:
+        reset, replies = await send_choice(client, entity, current, "0", "reset conversation to branch/menu selection")
         if not replies:
             raise RuntimeError("No response after the documented reset option 0.")
-        current = replies[-1]
+        current = await latest_incoming(client, entity) or replies[-1]
+        current = await ensure_bellabyte_login(client, entity, current)
+        current = await latest_incoming(client, entity) or current
         text = norm(current.message)
         low = text.lower()
-        if not is_main_menu(text) and "qual filial deseja se conectar" not in low and "digite qual filial" not in low:
-            latest = await latest_incoming(client, entity)
-            if latest:
-                current = latest
-                text = norm(current.message)
-                low = text.lower()
+        branch_prompt = "qual filial deseja se conectar" in low or "digite qual filial" in low
 
-    if "qual filial deseja se conectar" in low or "digite qual filial" in low:
+    if branch_prompt:
         branch_reply, replies = await send_choice(client, entity, current, "1", "select the configured Marcopao branch")
         if not replies:
             raise RuntimeError("No response after branch selection 1.")
-        latest = await latest_incoming(client, entity)
-        current = latest or branch_reply
+        current = await latest_incoming(client, entity) or replies[-1]
         current = await ensure_bellabyte_login(client, entity, current)
         current = await latest_incoming(client, entity) or current
         text = norm(current.message)
@@ -603,10 +659,14 @@ async def recover_menu(client, entity, current):
     if not is_main_menu(text):
         history = await client.get_messages(entity, limit=40)
         menus = [m for m in history if not m.out and is_main_menu(m.message)]
+        # A stale menu from before login/reset must not silently be used.
+        current_id = getattr(current, "id", 0) or 0
+        menus = [m for m in menus if m.id >= current_id]
         if menus:
-            current = max(menus, key=lambda m:m.id)
+            current = max(menus, key=lambda m: m.id)
+            text = norm(current.message)
         else:
-            raise RuntimeError("Main report menu not confirmed after reset and branch selection.")
+            raise RuntimeError("Main report menu not confirmed after login, reset and branch selection.")
     return current
 
 async def finish_card_prompt(client, entity):
@@ -634,36 +694,115 @@ async def finish_card_prompt(client, entity):
     return None
 
 async def resolve_period_selectors(client, entity, latest, replies, requested_period, report_type):
-    """Resolve year/month selection menus using the requested report period, if shown."""
+    """Resolve year/month filters for the requested report period."""
     month_names = {
         1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
         5: "maio", 6: "junho", 7: "julho", 8: "agosto",
         9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro",
     }
-    if not re.fullmatch(r"\d{4}-\d{2}", requested_period):
+    target_date = requested_period[:7] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", requested_period) else requested_period
+    if not re.fullmatch(r"\d{4}-\d{2}", target_date):
         return latest, replies
-    target_month = month_names[int(requested_period[5:7])]
-    # Use latest-incoming after each action because the bot sends a separate message per selection.
-    for _ in range(3):
+    target_month = month_names[int(target_date[5:7])]
+    target_year = int(target_date[:4])
+    current_year = datetime.now(ZoneInfo("America/Sao_Paulo")).year
+
+    for _ in range(4):
         prompt = norm(latest.message).lower()
         labels = [label.strip() for label in buttons(latest)]
         labels_low = [label.lower() for label in labels]
-        if any("ano atual" in label for label in labels_low) or ("ano atual" in prompt and "ano anterior" in prompt):
-            choice = next((label for label in labels if "ano atual" in label.lower()), "Ano Atual")
-            latest, more = await send_choice(client, entity, latest, choice, f"select current year for {report_type}")
+        year_options = [label for label in labels if "ano atual" in label.lower() or "ano anterior" in label.lower()]
+        if year_options or ("ano atual" in prompt and "ano anterior" in prompt):
+            desired = "Ano Atual" if target_year == current_year else "Ano Anterior"
+            choice = next((label for label in labels if desired.lower() in label.lower()), desired)
+            latest, more = await send_choice(client, entity, latest, choice, f"select target year for {report_type}")
             if not more:
-                raise RuntimeError(f"Monitorbot did not respond to current-year selection for {report_type}.")
+                raise RuntimeError(f"Monitorbot did not respond to {desired} selection for {report_type}.")
             replies.extend(more)
-            latest = await latest_incoming(client, entity) or latest
+            latest = await latest_incoming(client, entity) or more[-1]
             continue
-        candidates = [label for label in labels if target_month in label.lower()]
-        month_prompt = any(term in prompt for term in ("selecione o mês", "selecione a opção desejada", "mês desejado", "escolha o mês"))
-        if candidates and (month_prompt or labels):
-            latest, more = await send_choice(client, entity, latest, candidates[0], f"select {target_month} for {report_type}")
+
+        day_options = [label for label in labels if "dia anterior" in label.lower() or label.lower() == "anterior"]
+        if report_type == "sale_day" and day_options:
+            latest, more = await send_choice(client, entity, latest, day_options[0], "select previous day for daily sales")
+            if not more:
+                raise RuntimeError("Monitorbot did not return the previous-day report.")
+            replies.extend(more)
+            latest = await latest_incoming(client, entity) or more[-1]
+            if any(matches_report_type(m.message or "", "sale_day") for m in more):
+                break
+            continue
+
+        month_options = [label for label in labels if target_month in label.lower()]
+        month_prompt = any(term in prompt for term in ("selecione o mês", "selecione a opção desejada", "selecione o periodo", "selecione o período", "mês desejado", "escolha o mês"))
+        has_group_scope = "todos" in labels_low and report_type in {"ticket_average", "products_by_group"}
+        if month_options and not has_group_scope and (month_prompt or labels):
+            latest, more = await send_choice(client, entity, latest, month_options[0], f"select {target_month} for {report_type}")
             if not more:
                 raise RuntimeError(f"Monitorbot did not respond to {target_month} selection for {report_type}.")
             replies.extend(more)
-            latest = await latest_incoming(client, entity) or latest
+            latest = await latest_incoming(client, entity) or more[-1]
+            continue
+        break
+    return latest, replies
+
+
+async def resolve_group_scope(client, entity, latest, replies, report_type):
+    """Select Todos in report 10/13 group-scoped menus so the collector gets a complete list."""
+    if report_type not in {"ticket_average", "products_by_group"}:
+        return latest, replies
+    labels = buttons(latest)
+    everyone = next((label for label in labels if label.strip().lower() == "todos"), None)
+    if not everyone:
+        return latest, replies
+    if report_message_has_data(latest.message or ""):
+        return latest, replies
+    latest, more = await send_choice(client, entity, latest, everyone, f"select all groups for {report_type}")
+    if not more:
+        raise RuntimeError(f"Monitorbot did not return the Todos report for {report_type}.")
+    replies.extend(more)
+    latest = await latest_incoming(client, entity) or more[-1]
+    return latest, replies
+
+
+async def resolve_daily_selection(client, entity, latest, replies, requested_period, local_now):
+    """Handle year selection and the explicit previous-day button without guessing a date."""
+    target_year = int(requested_period[:4])
+    current_year = local_now.year
+    for _ in range(5):
+        text = norm(latest.message).lower()
+        labels = [label.strip() for label in buttons(latest)]
+        labels_low = [label.lower() for label in labels]
+        if any("ano atual" in x for x in labels_low) or ("ano atual" in text and "ano anterior" in text):
+            desired = "Ano Atual" if target_year == current_year else "Ano Anterior"
+            choice = next((label for label in labels if desired.lower() in label.lower()), desired)
+            latest, more = await send_choice(client, entity, latest, choice, f"select target year {target_year} for daily sales")
+            if not more:
+                raise RuntimeError("Monitorbot did not return the target year menu for daily sales.")
+            replies.extend(more)
+            latest = await latest_incoming(client, entity) or more[-1]
+            continue
+
+        previous_day = next((label for label in labels if "dia anterior" in label.lower() or label.lower() == "anterior"), None)
+        if previous_day:
+            latest, more = await send_choice(client, entity, latest, previous_day, "select previous day for daily sales")
+            if not more:
+                raise RuntimeError("Monitorbot did not return the previous-day report.")
+            replies.extend(more)
+            latest = await latest_incoming(client, entity) or more[-1]
+            if any(matches_report_type(m.message or "", "sale_day") for m in more):
+                break
+            continue
+
+        month_names = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+        target_month = month_names[int(requested_period[5:7]) - 1]
+        month_option = next((label for label in labels if target_month in label.lower()), None)
+        if month_option and any(token in text for token in ("selecione", "mês", "mes", "opção desejada")):
+            latest, more = await send_choice(client, entity, latest, month_option, f"select target month for daily sales {requested_period}")
+            if not more:
+                raise RuntimeError(f"Monitorbot did not return the {target_month} daily report.")
+            replies.extend(more)
+            latest = await latest_incoming(client, entity) or more[-1]
             continue
         break
     return latest, replies
@@ -683,26 +822,18 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
     latest = await latest_incoming(client, entity) or latest
 
     if report_type == "sale_day":
-        visible = [label.lower() for label in buttons(latest)]
-        prompt = norm(latest.message).lower()
-        has_previous_day = any("dia anterior" in label or label == "anterior" for label in visible)
-        mentions_day_choices = "dia anterior" in prompt or ("hoje" in prompt and "anterior" in prompt)
-        if has_previous_day or mentions_day_choices:
-            choice = next((label for label in buttons(latest) if "dia anterior" in label.lower() or label.lower() == "anterior"), "Dia anterior")
-            latest, more = await send_choice(client, entity, latest, choice, "select previous day for daily sales")
-            if not more:
-                raise RuntimeError("Monitorbot did not return the previous-day report")
-            replies.extend(more)
-            latest = await latest_incoming(client, entity) or latest
+        latest, replies = await resolve_daily_selection(client, entity, latest, replies, requested_period, local_now)
     else:
-        latest, replies = await resolve_period_selectors(
-            client, entity, latest, replies, requested_period, report_type
-        )
+        latest, replies = await resolve_period_selectors(client, entity, latest, replies, requested_period, report_type)
+        latest, replies = await resolve_group_scope(client, entity, latest, replies, report_type)
 
-    report = next((m for m in reversed(replies) if matches_report_type(m.message, report_type)), None)
+    report, report_text = find_report_payload(replies, report_type)
     if report is None:
-        report = await wait_for_report(client, entity, report_type, after_id=menu_id, timeout=40)
-    if report is None:
+        # Fallback is constrained to messages arriving after this report-selection turn.
+        found = await wait_for_report(client, entity, report_type, after_id=menu_id, timeout=40)
+        if found is not None:
+            report, report_text = found, found.message or ""
+    if report is None or not report_text:
         latest_now = await latest_incoming(client, entity)
         raise RuntimeError(
             f"Report {option} ({report_type}) not found; latest response="
@@ -710,15 +841,17 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
             f"buttons={buttons(latest_now) if latest_now else []}"
         )
 
-    low = norm(report.message).lower()
-    if report_type == "sale_day" and daily_report_date_mismatch(report.message, "daily_yesterday"):
+    low = norm(report_text).lower()
+    if report_type == "sale_day" and daily_report_date_mismatch(report_text, "daily_yesterday"):
         raise RuntimeError("Daily report title says today while the requested period is yesterday.")
     if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
         raise RuntimeError("Monthly report semantic validation failed.")
-    if report_type not in {"sale_day", "monthly_sales"} and not matches_report_type(report.message, report_type):
+    if report_type not in {"sale_day", "monthly_sales"} and not (
+        report_title_match(report_text, report_type) or matches_report_type(report_text, report_type)
+    ):
         raise RuntimeError(f"Report body failed semantic validation for {report_type}.")
 
-    output = save_report(report, report_type, requested_period)
+    output = save_report(report, report_type, requested_period, raw_text=report_text)
     card_report = None
     if report_type == "sale_day":
         card_report = await finish_card_prompt(client, entity)
