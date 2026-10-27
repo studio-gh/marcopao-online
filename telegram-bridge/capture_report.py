@@ -155,9 +155,11 @@ def parse_report_data(report_type, raw):
             if value is not None:
                 totals[key] = value
 
-        total = money(r"^(?:Venda Total do dia|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})")
+        # Telegram sometimes joins the report heading and all metrics into one line.
+        # Match the explicit "Total R$" label anywhere, but never the phrase "Total de vendas".
+        total = money(r"(?<![\w])(?:Venda Total do dia|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})")
         if total is None:
-            total = money(r"^Total de vendas nos Pdvs\s*\n\s*Total\s*:?\s*R?\$?\s*([\d.]+,\d{2})")
+            total = money(r"Total de vendas nos Pdvs\s*\n\s*Total\s*:?\s*R?\$?\s*([\d.]+,\d{2})")
         if total is not None:
             totals["total"] = total
         coupons = integer(r"Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)")
