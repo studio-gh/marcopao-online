@@ -995,7 +995,8 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
     option = REPORT_TYPE_TO_OPTION[report_type]
     current = await latest_incoming(client, entity)
     current = await recover_menu(client, entity, current)
-    if current is None or not is_main_menu(current.message):
+    # Recovery accepts either the textual main menu or the confirmed numbered keyboard.
+    if current is None or not is_report_menu_message(current):
         raise RuntimeError("Report menu could not be confirmed before selecting option " + option)
     menu_id = current.id
     latest, replies = await send_choice(client, entity, current, option, f"select report type {report_type}")
