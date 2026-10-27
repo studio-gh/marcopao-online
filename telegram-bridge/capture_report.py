@@ -105,48 +105,99 @@ async def ensure_bellabyte_login(client, entity, current):
 def br_number(value):
     return float(value.replace(".", "").replace(",", "."))
 
-def parse_totals(raw):
-    patterns = {
-        "dinheiro": r"Dinheiro\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "pix": r"PIX\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "pos_credito": r"POS Crédito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "pos_debito": r"POS Débito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "tef": r"TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "ticket_pagamento": r"TICKET\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "total": r"(?:Venda Total do dia|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-        "ticket_medio": r"Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
-    }
+def br_number(value):
+    return float(value.replace(".", "").replace(",", "."))
+
+def parse_report_data(report_type, raw):
+    """Parse only fields that belong to a report; never infer a sales total from a ranking."""
+    raw = raw or ""
+    text = norm(raw)
+    low = text.lower()
     totals = {}
     warnings = []
-    for key, pattern in patterns.items():
+
+    def money(key, pattern):
         match = re.search(pattern, raw, re.IGNORECASE)
         if match:
             try:
                 totals[key] = round(br_number(match.group(1)), 2)
             except ValueError:
                 warnings.append(f"Valor inválido: {key}")
-    coupons = re.search(r"Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)", raw, re.IGNORECASE)
-    if coupons:
-        totals["cupons"] = int(coupons.group(1).replace(".", ""))
-    if "total" not in totals:
-        warnings.append("Total de vendas não foi identificado.")
-    if "cupons" not in totals:
-        warnings.append("Quantidade de cupons não foi identificada.")
-    payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
-    card_keys = ["pos_credito", "pos_debito", "tef"]
-    missing_cards = [key for key in card_keys if key not in totals]
-    totals["payment_methods_included"] = [key for key in payment_keys if key in totals]
-    totals["card_sales_included"] = not missing_cards
-    if missing_cards:
-        warnings.append("Detalhes de cartão incompletos: faltando " + ", ".join(missing_cards) + ".")
-    if "total" in totals and all(key in totals for key in payment_keys):
-        payment_sum = round(sum(totals[key] for key in payment_keys), 2)
-        totals["payment_methods_sum"] = payment_sum
-        totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
-        if abs(totals["payment_reconciliation_diff"]) > 0.02:
-            warnings.append("Soma dos meios de pagamento difere do total informado.")
+
+    def integer(key, pattern):
+        match = re.search(pattern, raw, re.IGNORECASE)
+        if match:
+            totals[key] = int(match.group(1).replace(".", ""))
+
+    money_patterns = {
+        "dinheiro": r"Dinheiro\\s*: ?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pix": r"PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pos_credito": r"POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pos_debito": r"POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "tef": r"TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "ticket_pagamento": r"TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "ticket_medio": r"Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+    }
+
+    if report_type in {"sale_day", "monthly_sales"}:
+        if report_type == "sale_day":
+            if "venda acumulada do mês" in low or not any(k in low for k in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia", "total de vendas nos pdvs")):
+                raise ValueError("Resposta não corresponde ao relatório de venda do dia.")
+        else:
+            if "venda acumulada do mês" not in low:
+                raise ValueError("Resposta não corresponde ao relatório acumulado do mês.")
+        for key, pattern in money_patterns.items():
+            money(key, pattern)
+        money("total", r"(?:Venda Total do dia|Total de vendas nos Pdvs\\s*\\nTotal|^Total)\\s*: ?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        integer("cupons", r"Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)")
+        integer("cupons_cancelados", r"Qtd de Cupons cancelados\\s*:?\\s*([\\d.]+)")
+        money("valor_vendas_nao_concluidas", r"Venda não Concluída\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        money("valor_itens_cancelados", r"Vlr Total Item Canc\\.\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        if "total" not in totals:
+            warnings.append("Total de vendas não foi identificado.")
+        if "cupons" not in totals:
+            warnings.append("Quantidade de cupons não foi identificada.")
+        payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
+        missing = [key for key in payment_keys if key not in totals]
+        totals["payment_methods_included"] = [key for key in payment_keys if key in totals]
+        totals["card_sales_included"] = not any(k in missing for k in ("pos_credito", "pos_debito", "tef"))
+        if missing:
+            warnings.append("Meios de pagamento ausentes: " + ", ".join(missing) + ".")
+        if "total" in totals and not missing:
+            payment_sum = round(sum(totals[k] for k in payment_keys), 2)
+            totals["payment_methods_sum"] = payment_sum
+            totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
+            if abs(totals["payment_reconciliation_diff"]) > 0.02:
+                warnings.append("Soma dos meios de pagamento difere do total informado.")
+    elif report_type in {"top_value", "top_quantity", "ticket_average", "sales_by_group", "products_by_group"}:
+        # Structured rows are kept as raw report content and parsed into a stable JSON list.
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        entries = []
+        for line in lines:
+            money_match = re.search(r"^(.*?)\\s+(?:R\\$\\s*)?([\\d.]+,\\d{2})\\s*$", line, re.IGNORECASE)
+            qty_match = re.search(r"^(.*?)\\s+([\\d.]+)\\s*(kg|un(?:idade)?s?|pct|pacotes?)\\s*$", line, re.IGNORECASE)
+            if money_match and not re.search(r"^(total|faturamento|valor total)\\b", line, re.IGNORECASE):
+                entries.append({"name": money_match.group(1).strip(" .:-"), "value": round(br_number(money_match.group(2)), 2), "raw": line})
+            elif qty_match:
+                try:
+                    entries.append({"name": qty_match.group(1).strip(" .:-"), "quantity": float(qty_match.group(2).replace(".", "").replace(",", ".")), "unit": qty_match.group(3).lower(), "raw": line})
+                except ValueError:
+                    pass
+        if not entries:
+            # The report might have a valid but different tabular layout. Preserve it, but do not claim parsed rows.
+            warnings.append("Formato tabular não reconhecido automaticamente; conteúdo bruto preservado para revisão.")
+        totals["entries"] = entries
+        totals["entry_count"] = len(entries)
+        totals["raw_line_count"] = len(lines)
+    else:
+        raise ValueError(f"Tipo de relatório desconhecido: {report_type}")
+
     totals["validation_warnings"] = warnings
     return totals, warnings
+
+def parse_totals(raw):
+    # Backwards-compatible entry point retained for current daily/monthly tests.
+    return parse_report_data("sale_day", raw)
 
 def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -155,29 +206,33 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secret; refusing to discard captured report.")
     report = json.loads(Path(report_file).read_text(encoding="utf-8"))
     raw = report["raw_text"]
-    totals, warnings = parse_totals(raw)
+    try:
+        totals, warnings = parse_report_data(report_type, raw)
+    except ValueError as exc:
+        raise RuntimeError(f"Report validation failed; database write was not attempted: {exc}") from None
     low_raw = norm(raw).lower()
-    if "total" not in totals:
-        raise RuntimeError("Report validation failed; database write was not attempted.")
     branch = report.get("branch", BRANCH)
     if report_type == "sale_day":
-        if not any(term in low_raw for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia", "total de vendas nos pdvs")):
-            raise RuntimeError("Daily report did not contain a recognized daily-sales marker.")
-        if "venda acumulada do mês" in low_raw:
-            raise RuntimeError("Monthly report cannot be stored as daily sales.")
         period_start = requested_period
         period_end = requested_period
         report_date = requested_period
-    else:
-        if "venda acumulada do mês" not in low_raw:
-            raise RuntimeError("Monthly report did not contain a recognized monthly-sales marker.")
+    elif report_type == "monthly_sales":
         period_start = requested_period + "-01"
         period_end = (datetime.strptime(requested_period, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1).date().isoformat()
         period_end = (datetime.fromisoformat(period_end).date() - timedelta(days=1)).isoformat()
         report_date = None
+    else:
+        # Non-calendar reports are snapshots. For a YYYY-MM target the period is month-to-date.
+        if re.fullmatch(r"\\d{4}-\\d{2}", requested_period):
+            period_start = requested_period + "-01"
+            period_end = local_today_from_queried_at(queried_at, requested_period)
+        else:
+            period_start = requested_period
+            period_end = requested_period
+        report_date = period_end
 
     payment_fields = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
-    if "total" in totals and all(k in totals for k in payment_fields):
+    if report_type in {"sale_day", "monthly_sales"} and "total" in totals and all(k in totals for k in payment_fields):
         payment_sum = round(sum(float(totals[k]) for k in payment_fields), 2)
         totals["payment_methods_sum"] = payment_sum
         totals["payment_reconciliation_diff"] = round(payment_sum - float(totals["total"]), 2)
@@ -282,6 +337,15 @@ def report_type_for_option(option):
 
 def monthly_period(date_value):
     return date_value[:7]
+
+def local_today_from_queried_at(queried_at, requested_month):
+    stamp = queried_at
+    if not isinstance(stamp, datetime):
+        stamp = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+    local = stamp.astimezone(ZoneInfo("America/Sao_Paulo")).date().isoformat()
+    return local if local[:7] == requested_month else (datetime.strptime(requested_month, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1).date().isoformat()
 
 def stable_report_identity(report_type, branch, period_start, period_end):
     identity = "|".join((str(report_type), norm(branch).upper(), str(period_start), str(period_end)))
