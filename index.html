@@ -509,7 +509,8 @@ function applyFilters(){
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
  const dailyMode=selectedType==="sale-day";
- const other=!dailyMode && selectedType!=="sale-month" && selectedType!=="sales-group";
+ const monthlyMode=selectedType==="sale-month";
+ const other=!dailyMode && !monthlyMode && selectedType!=="sales-group";
  document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other || dailyMode));
  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
