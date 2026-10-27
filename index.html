@@ -425,8 +425,6 @@ function applyFilters(){
  const period=document.getElementById('periodFilter').value;
  const dateWrap=document.getElementById('reportDateFilterWrap');
  if(dateWrap)dateWrap.hidden=!(selectedType==='sale-day'&&period==='custom');
- const dateWrap=document.getElementById('reportDateFilterWrap');
- if(dateWrap)dateWrap.hidden=!(selectedType==='sale-day'&&period==='custom');
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
  const dailyMode=selectedType==="sale-day";
