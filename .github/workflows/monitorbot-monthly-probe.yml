@@ -4,22 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       report_mode:
-        description: "Relatório para coletar"
+        description: "Report to collect"
         required: true
         type: choice
         options:
           - daily_yesterday
           - monthly_october
         default: daily_yesterday
-  schedule:
-    - cron: "10 3 * * *"
 
 permissions:
   contents: read
-
-concurrency:
-  group: marcopao-report-collector
-  cancel-in-progress: false
 
 jobs:
   collect-report:
@@ -38,13 +32,13 @@ jobs:
         run: node scripts/validate_dashboard.mjs
       - name: Validate collector Python syntax
         run: python -m py_compile telegram-bridge/capture_report.py
-      - name: Collect yesterday's daily sales or selected monthly report
+      - name: Collect report and persist it with review status
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
-          REPORT_MODE: ${{ github.event_name == 'schedule' && 'daily_yesterday' || inputs.report_mode }}
+          REPORT_MODE: ${{ inputs.report_mode }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
