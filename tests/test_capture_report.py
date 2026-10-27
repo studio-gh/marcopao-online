@@ -8,6 +8,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 parse_totals = MODULE.parse_totals
 matches_report = MODULE.matches_report
+daily_report_date_mismatch = MODULE.daily_report_date_mismatch
 
 
 
@@ -47,6 +48,17 @@ Quantidades de Cupons: 10
 """
         self.assertTrue(matches_report(monthly, "monthly_october"))
         self.assertFalse(matches_report(monthly, "daily_yesterday"))
+
+    def test_rejects_today_report_when_yesterday_was_requested(self):
+        self.assertTrue(daily_report_date_mismatch(
+            "Venda de Hoje Filial: Marcopao Total de vendas nos Pdvs", "daily_yesterday"
+        ))
+        self.assertFalse(daily_report_date_mismatch(
+            "Venda do Dia Anterior Total de vendas nos Pdvs", "daily_yesterday"
+        ))
+        self.assertFalse(daily_report_date_mismatch(
+            "Venda de Hoje Total de vendas nos Pdvs", "monthly_october"
+        ))
 
     def test_daily_report_is_recognized(self):
         daily = """Venda do Dia
