@@ -24,4 +24,5 @@ jobs:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
+          BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
         run: python telegram-bridge/probe_monthly_sales.py
