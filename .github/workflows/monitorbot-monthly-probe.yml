@@ -7,15 +7,25 @@ on:
   workflow_dispatch:
     inputs:
       report_mode:
-        description: "Report to collect"
+        description: "Report or sequence to collect"
         required: true
         type: choice
         options:
           - daily_yesterday
-          - monthly_october
-        default: daily_yesterday
+          - monthly_accumulated
+          - top_value
+          - top_quantity
+          - ticket_average
+          - sales_by_group
+          - products_by_group
+          - all_reports
+        default: all_reports
   schedule:
-    - cron: "10 3 * * *"
+    - cron: "0 11 * * *"
+    - cron: "0 14 * * *"
+    - cron: "0 17 * * *"
+    - cron: "0 20 * * *"
+    - cron: "0 23 * * *"
 
 permissions:
   contents: read
@@ -29,7 +39,7 @@ concurrency:
 jobs:
   collect-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -54,7 +64,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
-          REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode || 'daily_yesterday' }}
+          REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode || 'all_reports' }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
