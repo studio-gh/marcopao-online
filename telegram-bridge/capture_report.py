@@ -157,30 +157,46 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     raw = report["raw_text"]
     totals, warnings = parse_totals(raw)
     low_raw = norm(raw).lower()
-    allowed_markers = (
-        "venda do dia", "venda de hoje", "venda de ontem",
-        "venda acumulada do mês", "venda total do dia", "total de vendas nos pdvs"
-    )
-    if "total" not in totals or not any(term in low_raw for term in allowed_markers):
+    if "total" not in totals:
         raise RuntimeError("Report validation failed; database write was not attempted.")
+    branch = report.get("branch", BRANCH)
     if report_type == "sale_day":
-        if not any(term in low_raw for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia")):
+        if not any(term in low_raw for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia", "total de vendas nos pdvs")):
             raise RuntimeError("Daily report did not contain a recognized daily-sales marker.")
-    elif "venda acumulada do mês" not in low_raw:
-        raise RuntimeError("Monthly report did not contain a recognized monthly-sales marker.")
-    branch = report.get("branch", "")
-    if report_type == "sale_day":
+        if "venda acumulada do mês" in low_raw:
+            raise RuntimeError("Monthly report cannot be stored as daily sales.")
         period_start = requested_period
         period_end = requested_period
         report_date = requested_period
     else:
+        if "venda acumulada do mês" not in low_raw:
+            raise RuntimeError("Monthly report did not contain a recognized monthly-sales marker.")
         period_start = requested_period + "-01"
-        period_end = queried_at.date().isoformat()
+        period_end = (datetime.strptime(requested_period, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1).date().isoformat()
+        period_end = (datetime.fromisoformat(period_end).date() - timedelta(days=1)).isoformat()
         report_date = None
+
+    payment_fields = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
+    if "total" in totals and all(k in totals for k in payment_fields):
+        payment_sum = round(sum(float(totals[k]) for k in payment_fields), 2)
+        totals["payment_methods_sum"] = payment_sum
+        totals["payment_reconciliation_diff"] = round(payment_sum - float(totals["total"]), 2)
+        if abs(totals["payment_reconciliation_diff"]) > 0.02 and not any("Soma dos meios de pagamento" in w for w in warnings):
+            warnings.append("Soma dos meios de pagamento difere do total informado.")
+    totals["validation_warnings"] = warnings
+
     notes = [
         "Capturado automaticamente do Bellabyte; aguarda revisão semântica.",
         "Relatório bruto preservado; status não será promovido automaticamente a validated.",
     ] + warnings
+    card_details = report.get("card_details")
+    if card_details:
+        totals["card_details"] = card_details
+        notes.append("Detalhes de cartão capturados separadamente. Não somar novamente ao total sem confirmar sobreposição.")
+
+    # Stable identity for a business-day snapshot: new captures of the same report/day update one row.
+    identity = f"{report_type}|{branch}|{period_start}|{period_end}"
+    identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
     row = {
         "report_type": report_type,
         "branch_id": None,
@@ -190,15 +206,11 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         "report_date": report_date,
         "source": "telegram_monitorbot",
         "raw_text": raw,
-        "content_sha256": report["content_sha256"],
+        "content_sha256": identity_hash,
         "status": "needs_review",
         "validation_notes": notes,
         "totals": totals,
     }
-    card_details = report.get("card_details")
-    if card_details:
-        row["totals"]["card_details"] = card_details
-        row["validation_notes"].append("Detalhes de cartão capturados em resposta separada do Monitorbot; validar possível sobreposição com POS/TEF antes de somar novamente.")
     body = json.dumps([row], ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         f"{base_url}/rest/v1/report_imports?on_conflict=content_sha256",
@@ -216,10 +228,9 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
             if response.status not in (200, 201, 204):
                 raise RuntimeError(f"Supabase returned HTTP {response.status}")
             print(f"SUPABASE_IMPORT_HTTP={response.status}")
-            print(f"SUPABASE_IMPORT_HASH={report['content_sha256']}")
-            print(f"SUPABASE_STATUS=needs_review")
+            print(f"SUPABASE_IMPORT_IDENTITY_HASH={identity_hash}")
+            print("SUPABASE_STATUS=needs_review")
     except urllib.error.HTTPError as exc:
-        # Do not print response body, which can contain business data.
         raise RuntimeError(f"Supabase import failed with HTTP {exc.code}") from None
 
 def save_report(message, report_type, requested_period, raw_text=None):
