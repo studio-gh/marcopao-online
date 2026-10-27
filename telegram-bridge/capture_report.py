@@ -508,7 +508,7 @@ def report_title_match(text, report_type):
         "top_quantity": ("top 100 quantidade", "top 100 por quantidade", "maiores vendas por quantidade"),
         "ticket_average": ("ticket médio preço vendas por quantidade", "ticket medio preço vendas por quantidade", "ticket médio preço", "ticket medio preço"),
         "sales_by_group": ("total vendas por grupo", "total de vendas por grupo", "vendas por grupo"),
-        "products_by_group": ("vendas de produto por grupo", "venda de produto por grupo", "produtos por grupo"),
+        "products_by_group": ("vendas de produto por grupo", "venda de produto por grupo", "vendas produtos por grupo", "vendas produto por grupo", "produtos por grupo"),
     }
     if report_type == "sale_day":
         return any(marker in low for marker in ("venda total do dia", "total de vendas nos pdvs", "venda do dia", "venda de ontem"))
@@ -539,7 +539,8 @@ def find_report_payload(replies, report_type):
         text = message.message or ""
         labels = [label.lower() for label in buttons(message)]
         # These are selection prompts, not report content. Advance through them before searching.
-        if report_type in {"ticket_average", "products_by_group"} and "todos" in labels and not report_message_has_data(text):
+        # Group selectors can share the report title; only skip a pure selector prompt.
+        if report_type in {"ticket_average", "products_by_group"} and "todos" in labels and not report_message_has_data(text) and not report_title_match(text, report_type):
             continue
         if report_title_match(text, report_type) and (report_message_has_data(text) or report_type in {"sales_by_group", "products_by_group"}):
             start_index = index
@@ -547,6 +548,15 @@ def find_report_payload(replies, report_type):
         if matches_report_type(text, report_type):
             start_index = index
             break
+    if start_index is None and report_type == "ticket_average":
+        # Bellabyte often emits the report title on the group-selection prompt, then sends
+        # the actual rows without repeating the title. Find the first new price-bearing row.
+        for index, message in enumerate(replies):
+            text = message.message or ""
+            low = norm(text).lower()
+            if report_message_has_data(text) and re.search(r"preço\s*m[eé]dio|preco\s*medio|preço\s*:", low, re.IGNORECASE):
+                start_index = index
+                break
     if start_index is None:
         return None, None
 
