@@ -330,7 +330,6 @@ function reportDay(text, fallback){
   const m=v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m?m[3]+"-"+m[2]+"-"+m[1]:"";
 }
-}
 function parseDayMetrics(text){
  const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
  const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\\./g,""),10):null};
