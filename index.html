@@ -377,15 +377,18 @@ function renderDailyComparison(){
   .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)&&(selectedBranch==='all'||r.branch===selectedBranch))
   .sort((a,b)=>a.date.localeCompare(b.date));
  if(period==='today'){
-  const todayIso=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+  const todayIso=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   ready=ready.filter(r=>r.date===todayIso);
  }else if(period==='custom'&&customDate){
   ready=ready.filter(r=>r.date===customDate);
+ }else if(period==='month'){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).format(new Date());
+  ready=ready.filter(r=>r.date.slice(0,7)===parts);
  }
  const today=ready[ready.length-1]||null;
  if(!today){
   empty.style.display='block';grid.style.display='none';
-  const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':'';
+  const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':period==='month'?' no mês atual':'';
   setText('dailyCompareSubtitle','Comparação diária da filial selecionada.');
   empty.textContent='Nenhum relatório diário encontrado'+suffix+'. A visão mensal não será usada como substituta; são necessários dados diários reais.';
   return;
@@ -418,9 +421,10 @@ function renderDailyComparison(){
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
  setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
 }
-
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
+ const dateWrap=document.getElementById('reportDateFilterWrap');
+ if(dateWrap)dateWrap.hidden=!(selectedType==='sale-day'&&period==='custom');
  const dateWrap=document.getElementById('reportDateFilterWrap');
  if(dateWrap)dateWrap.hidden=!(selectedType==='sale-day'&&period==='custom');
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
@@ -491,6 +495,7 @@ document.getElementById('applyBtn').onclick=()=>{
 document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group')renderGroupBars();});
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
+document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
 document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
 document.getElementById('branchFilter').addEventListener('change',applyFilters);
 document.getElementById('searchFilter').addEventListener('input',applyFilters);
