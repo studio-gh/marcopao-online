@@ -334,8 +334,8 @@ function renderDailyComparison(){
  const prev=today?ready.filter(r=>r.date<today.date).sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
  if(!today||!prev){
    empty.style.display='block';grid.style.display='none';
-   setText('dailyCompareSubtitle','A comparação usa datas reais dos relatórios importados da filial selecionada.');
-   empty.textContent='Visão diária indisponível: precisamos de relatórios de dois dias consecutivos, com data identificada. Nenhum número de exemplo será usado.';
+   setText('dailyCompareSubtitle','A visão diária exige dois relatórios consecutivos da mesma filial, com datas confirmadas.');
+   empty.textContent='Visão diária indisponível. Este dashboard ainda não lê os relatórios do Supabase em tempo real; até a conexão autenticada ser concluída, a comparação depende de relatórios importados neste navegador. Nenhum número de exemplo será usado.';
    return;
  }
  empty.style.display='none';grid.style.display='grid';
@@ -368,7 +368,7 @@ function applyFilters(){
  if(dailyMode){
    renderDailyComparison();
    const newest=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
-   setText('filterStatus',newest?'Visão diária calculada a partir de relatórios armazenados no navegador. A comparação exige dois dias consecutivos.':'Relatório diário ainda não importado. Os números de exemplo foram removidos até existir uma fonte validada.');
+   setText('filterStatus',newest?'Comparação diária calculada a partir de relatórios importados neste navegador. A conexão autenticada com Supabase ainda está pendente.':'Relatório diário ainda não importado. A integração autenticada com Supabase ainda está pendente; os números de exemplo foram removidos.');
  } else if(other){
    setText('otherReportTitle',reportNames[selectedType]);
    setText('otherReportDescription','Relatório do menu Monitorbot. Conteúdo textual só aparece quando importado manualmente ou pela coleta automatizada.');
