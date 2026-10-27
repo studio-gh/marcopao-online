@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""State-aware Bellabyte conversation diagnostic.
+"""Recover Bellabyte menu state, then select monthly sales and capture next prompt.
 
-If the bot is on the daily-sales period menu (Ano Atual/Ano Anterior), this
-script stops and reports the choices without selecting either. It does not
-send report selections, choose a period, or write to Supabase.
+Uses only explicit menu options: 0 to return to branch selection, 1 for the
+known branch, and 2 for Venda Acumulada Mês. Stops if any expected state is
+not observed. Does not select a period or write to Supabase.
 """
 import asyncio
 import os
@@ -17,15 +17,51 @@ WAIT_SECONDS = 8
 def normalized(message):
     return " ".join((message or "").split())
 
-def button_labels(message):
+def labels(message):
     markup = getattr(message, "reply_markup", None)
-    labels = []
+    out = []
     for row in getattr(markup, "rows", []) or []:
         for button in getattr(row, "buttons", []) or []:
             label = getattr(button, "text", None)
             if label:
-                labels.append(str(label).strip())
-    return labels
+                out.append(str(label).strip())
+    return out
+
+async def latest(client, entity):
+    items = await client.get_messages(entity, limit=1)
+    return items[0] if items else None
+
+async def wait_bot(client, entity, before_id, seconds=WAIT_SECONDS):
+    for _ in range(seconds):
+        await asyncio.sleep(1)
+        items = await client.get_messages(entity, limit=15)
+        incoming = [m for m in items if m.id > before_id and not m.out]
+        if incoming:
+            return sorted(incoming, key=lambda m: m.id)
+    return []
+
+def show(m):
+    text = normalized(m.message)
+    print(f"MSG_ID={m.id} [BOT] text={text[:500]!r}" + ("…" if len(text) > 500 else ""))
+    b = labels(m)
+    if b:
+        print("BUTTONS: " + " | ".join(b[:30]))
+    return text
+
+async def send_and_wait(client, entity, choice, action):
+    last = await latest(client, entity)
+    if not last:
+        print("STOPPED: no latest message before action.")
+        return None
+    print(f"ACTION: sending documented menu choice {choice} ({action}).")
+    await client.send_message(entity, choice)
+    incoming = await wait_bot(client, entity, last.id, seconds=WAIT_SECONDS + 4)
+    if not incoming:
+        print("NO_REPLY: no incoming bot response within wait window.")
+        return None
+    for m in incoming:
+        show(m)
+    return await latest(client, entity)
 
 async def main():
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
@@ -42,29 +78,46 @@ async def main():
             print("SESSION_NOT_AUTHORIZED")
             return 3
         entity = await client.get_entity(BOT_USERNAME)
-        messages = await client.get_messages(entity, limit=5)
-        if not messages:
-            print("NO_HISTORY")
-            return 0
-        latest = messages[0]
-        text = normalized(latest.message)
-        labels = button_labels(latest)
-        print(f"BOT_STATE: {text[:500]!r}")
-        if labels:
-            print("BUTTONS: " + " | ".join(labels[:30]))
-        lower = text.lower()
-        if "venda de hoje" in lower and "dia anterior" in lower:
-            print("STATE_CLASSIFIED: daily-sales submenu.")
-            print("SAFE_STOP: no option selected; 'Ano Atual' and 'Ano Anterior' are not monthly-report periods.")
-        elif "venda acumulada mês" in lower and "top 100" in lower:
-            print("STATE_CLASSIFIED: main report menu.")
-            print("READY: next controlled step can select report 2.")
-        elif "qual filial deseja se conectar" in lower:
-            print("STATE_CLASSIFIED: branch selection menu.")
-        elif "precisa se logar" in lower or "precisa fazer login" in lower:
-            print("STATE_CLASSIFIED: Bellabyte login prompt.")
+        cur = await latest(client, entity)
+        if not cur:
+            print("STOPPED: no conversation history.")
+            return 4
+        text = normalized(cur.message)
+        print(f"CURRENT_STATE: {text[:300]!r}")
+        low = text.lower()
+
+        if "venda de hoje" in low and "dia anterior" in low:
+            cur = await send_and_wait(client, entity, "0", "return to branch selection")
+            if not cur:
+                return 5
+            text = normalized(cur.message)
+            low = text.lower()
+
+        if "qual filial deseja se conectar" in low:
+            cur = await send_and_wait(client, entity, "1", "select Marcopão Lanchonete e Panificação Ltda")
+            if not cur:
+                return 6
+            text = normalized(cur.message)
+            low = text.lower()
+
+        if "precisa se logar" in low or "precisa fazer login" in low:
+            print("STOPPED: Bellabyte login is still required; no report choice sent.")
+            return 7
+
+        if "venda acumulada mês" not in low or "top 100" not in low:
+            print("STOPPED: main report menu not confirmed; no report choice sent.")
+            return 8
+
+        cur = await send_and_wait(client, entity, "2", "select Venda Acumulada Mês")
+        if not cur:
+            return 9
+        text = normalized(cur.message)
+        low = text.lower()
+        if "venda de hoje" in low and "dia anterior" in low:
+            print("WARNING: bot returned daily-sales submenu; monthly report not confirmed.")
         else:
-            print("STATE_CLASSIFIED: unknown state; no messages sent.")
+            print("NEXT_STATE_CAPTURED: inspect the prompt above to identify the monthly report's next step.")
+        print("SAFE_END: no period selected and no Supabase writes made.")
         return 0
     finally:
         await client.disconnect()
@@ -73,5 +126,5 @@ if __name__ == "__main__":
     try:
         sys.exit(asyncio.run(main()))
     except Exception as exc:
-        print(f"DIAGNOSTIC_FAILED: {type(exc).__name__}: {exc}")
+        print(f"PROBE_FAILED: {type(exc).__name__}: {exc}")
         sys.exit(1)
