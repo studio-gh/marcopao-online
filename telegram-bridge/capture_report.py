@@ -187,7 +187,8 @@ def save_report(message, report_type, requested_period):
     print(f"REPORT_CAPTURED={output}")
     print(f"CONTENT_SHA256={digest}")
     print(f"REPORT_MESSAGE_ID={message.id}")
-    print(f"REPORT_TEXT_BEGIN\n{raw[:6000]}\nREPORT_TEXT_END")
+    # Public repository: never print raw sales data to workflow logs.
+    print("REPORT_TEXT_REDACTED: raw report stored only in protected Supabase row.")
     return output
 
 def is_main_menu(text):
