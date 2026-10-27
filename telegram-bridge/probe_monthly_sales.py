@@ -88,23 +88,27 @@ async def main():
         text = normalized(cur.message)
         print(f"CURRENT_STATE: {text[:300]!r}")
         low = text.lower()
+        # Normalize common Portuguese accents/punctuation variants in bot prompts.
+        state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
 
-        if "venda de hoje" in low and "dia anterior" in low:
+        if "venda de hoje" in state_key and "dia anterior" in state_key:
             print("STATE_CLASSIFIED: daily-sales submenu detected; documented menu footer says 0 returns to branch selection.")
             cur = await send_and_wait(client, entity, "0", "return to branch selection")
             if not cur:
                 return 5
             text = normalized(cur.message)
             low = text.lower()
+            state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
 
-        if "qual filial deseja se conectar" in low:
+        if "qual filial deseja se conectar" in state_key:
             cur = await send_and_wait(client, entity, "1", "select Marcopão Lanchonete e Panificação Ltda")
             if not cur:
                 return 6
             text = normalized(cur.message)
             low = text.lower()
+            state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
 
-        if "precisa se logar" in low or "precisa fazer login" in low:
+        if "precisa se logar" in state_key or "precisa fazer login" in state_key:
             print("STOPPED: Bellabyte login is still required; no report choice sent.")
             return 7
 
