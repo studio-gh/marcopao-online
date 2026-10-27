@@ -230,6 +230,15 @@ async def search_recent_report(client, entity, mode, after_id=None):
         candidates = [m for m in candidates if m.id > after_id]
     return max(candidates, key=lambda m: m.id) if candidates else None
 
+async def wait_for_report(client, entity, mode, after_id, timeout=30):
+    """Poll Telegram history for the report, not just the first prompt response."""
+    for _ in range(max(1, timeout // 2)):
+        report = await search_recent_report(client, entity, mode, after_id=after_id)
+        if report:
+            return report
+        await asyncio.sleep(2)
+    return await search_recent_report(client, entity, mode, after_id=after_id)
+
 async def recover_menu(client, entity, current):
     """Use the bot-documented 0 reset if conversation is not at a known menu."""
     text = norm(current.message)
@@ -368,7 +377,7 @@ async def main():
                 print("RECOVERY_COMPLETE: returned to a clean menu state; daily report not captured this run.")
                 return 0
 
-            report = await search_recent_report(client, entity, mode, after_id=menu_id)
+            report = await wait_for_report(client, entity, mode, after_id=menu_id)
             if not report:
                 report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
             if not report:
@@ -394,7 +403,7 @@ async def main():
             if not month_replies:
                 return 10
             replies.extend(month_replies)
-        report = await search_recent_report(client, entity, mode, after_id=menu_id)
+        report = await wait_for_report(client, entity, mode, after_id=menu_id)
         if not report:
             report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
         if not report:
