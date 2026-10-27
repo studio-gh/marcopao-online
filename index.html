@@ -350,13 +350,28 @@ function showMonthlyReport(row){
   total:Number(t.total),cash:Number(t.dinheiro),pix:Number(t.pix),tef:Number(t.tef),
   posCredit:Number(t.pos_credito||0),posDebit:Number(t.pos_debito||0),ticketMethod:Number(t.ticket_pagamento||0),
   coupons:Number(t.cupons||0),ticket:Number(t.ticket_medio||0),cancelCoupons:Number(t.cupons_cancelados||0),
-  cancelItems:Number(t.valor_itens_cancelados||0),branch:row.branch_name_raw||base.branch,date:"01/10/2026 a 31/10/2026",
+  cancelItems:Number(t.valor_itens_cancelados||0),branch:row.branch_name_raw||base.branch,
+  date:'01/10/2026 a '+(row.period_end?new Date(row.period_end+'T12:00:00').toLocaleDateString('pt-BR'):'31/10/2026'),
   imported:row.imported_at?new Date(row.imported_at).toLocaleString("pt-BR"):""
  };
+ if(!Number.isFinite(m.total)){setText('heroTotal','Total indisponível');setText('filterStatus','O relatório mensal não contém um total numérico válido.');return;}
  data=m;render();
- setText('reportPeriod','ACUMULADO DO MÊS · 01/10/2026 A 31/10/2026');
- setText('importInfo','Fonte: relatório 2 do Monitorbot · importado em '+(m.imported||'data não registrada')+' · status: '+(row.status||'needs_review'));
- setText('filterStatus','Relatório 2 carregado do Supabase · total informado R$ '+m.total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' · status '+(row.status||'needs_review')+'. Valores de venda acumulada não são somados aos relatórios diários.');
+ setText('heroTotal',money(m.total));setText('heroTicket',money(m.ticket));setText('coupons',num(m.coupons));
+ setText('cash',money(m.cash));setText('pix',money(m.pix));setText('tef',money(m.tef));
+ setText('cashShare',pct(m.cash,m.total)+' do total');setText('pixShare',pct(m.pix,m.total)+' do total');setText('tefShare',pct(m.tef,m.total)+' do total');
+ setText('legendTef',money(m.tef));setText('legendCash',money(m.cash));setText('legendPix',money(m.pix));
+ setText('donutTotal',m.total>=1000?'R$ '+(m.total/1000).toLocaleString('pt-BR',{maximumFractionDigits:2})+' mil':money(m.total));
+ setText('ticketLabel',money(m.ticket));setText('cancelCoupons',num(m.cancelCoupons));setText('cancelItems',money(m.cancelItems));
+ document.getElementById('ticketBar').style.width=Math.min(100,m.ticket/15*100)+'%';
+ document.getElementById('cancelBar').style.width=(m.coupons?Math.min(100,m.cancelCoupons/m.coupons*100):0)+'%';
+ document.getElementById('cancelItemBar').style.width=(m.total?Math.min(100,m.cancelItems/m.total*100):0)+'%';
+ const paySum=+(m.cash+m.pix+m.tef+m.posCredit+m.posDebit+m.ticketMethod).toFixed(2);
+ setText('paymentCheck',Math.abs(paySum-m.total)<.02?'Confere':'Revisar');
+ setText('ticketCheck',m.coupons&&Math.abs(m.total/m.coupons-m.ticket)<.02?'Confere':'Revisar');
+ setText('dateCheck','01/10/2026 a '+(row.period_end?new Date(row.period_end+'T12:00:00').toLocaleDateString('pt-BR'):'31/10/2026'));
+ setText('reportPeriod','ACUMULADO DO MÊS · 01/10/2026 A '+(row.period_end||'2026-10-31'));
+ setText('branchTag',m.branch);setText('importInfo','Fonte: relatório 2 do Monitorbot · importado em '+(m.imported||'data não registrada')+' · status: '+(row.status||'needs_review'));
+ setText('filterStatus','Relatório 2 carregado do Supabase · total informado '+money(m.total)+' · status '+(row.status||'needs_review')+'. Vendas acumuladas não são somadas aos relatórios diários.');
 }
 function parseReport(text,date){
  const d={...data};
