@@ -91,7 +91,7 @@ async def main():
         # Normalize common Portuguese accents/punctuation variants in bot prompts.
         state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
 
-        if "venda de hoje" in state_key and "dia anterior" in state_key:
+        if "dia anterior" in state_key and ("venda" in state_key or "opcao" in state_key):
             print("STATE_CLASSIFIED: daily-sales submenu detected; documented menu footer says 0 returns to branch selection.")
             cur = await send_and_wait(client, entity, "0", "return to branch selection")
             if not cur:
