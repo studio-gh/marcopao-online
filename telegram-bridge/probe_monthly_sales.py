@@ -67,6 +67,20 @@ async def main():
         b=labels(cur)
         if b: print("BUTTONS: " + " | ".join(b[:20]))
 
+
+        # If this run starts directly at the month menu, continue from that state.
+        button_text = " ".join(b).lower()
+        if "selecione a opção desejada no teclado" in low and "outubro" in button_text:
+            print("MONTH_MENU_DETECTED: selecting October for the October 2026 test.")
+            cur = await send_choice(client, entity, cur, "Outubro", "select October 2026 from current month menu")
+            if not cur: return 8
+            text = norm(cur.message); low = text.lower()
+            print(f"STATE_AFTER_MONTH: {text[:800]!r}")
+            b = labels(cur)
+            if b: print("BUTTONS: " + " | ".join(b[:20]))
+            print("SAFE_STOP: next state captured; no database writes performed.")
+            return 0
+
         # Do not send arbitrary digits while the year-choice question is active.
         if ("ano atual" in low and "ano anterior" in low) or ("ano atual" in " ".join(b).lower() and "ano anterior" in " ".join(b).lower()):
             print("YEAR_CHOICE_PROMPT_DETECTED: bot is waiting for Ano Atual or Ano Anterior.")
