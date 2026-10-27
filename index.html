@@ -366,31 +366,53 @@ function parseDayMetrics(text){
  };
 }
 function renderDailyComparison(){
- const panel=document.getElementById('dailyCompareView');
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
- const ready=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date));
- const today=ready[ready.length-1];
- const prev=today?ready.filter(r=>r.date<today.date).sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
- if(!today||!prev){
-   empty.style.display='block';grid.style.display='none';
-   setText('dailyCompareSubtitle','A visão diária exige dois relatórios consecutivos da mesma filial, com datas confirmadas.');
-   empty.textContent='Visão diária indisponível. Este dashboard ainda não lê os relatórios do Supabase em tempo real; até a conexão autenticada ser concluída, a comparação depende de relatórios importados neste navegador. Nenhum número de exemplo será usado.';
-   return;
+ const selectedBranch=document.getElementById('branchFilter').value;
+ const ready=dailyReports
+  .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)&&(selectedBranch==='all'||r.branch===selectedBranch))
+  .sort((a,b)=>a.date.localeCompare(b.date));
+ const today=ready[ready.length-1]||null;
+ if(!today){
+  empty.style.display='block';grid.style.display='none';
+  setText('dailyCompareSubtitle','A comparação usa relatórios reais da filial selecionada.');
+  empty.textContent='Nenhum relatório diário disponível. A comparação exige dois relatórios consecutivos da mesma filial. Nenhum dado fictício será exibido.';
+  return;
  }
- empty.style.display='none';grid.style.display='grid';
- const delta=today.metrics.total-prev.metrics.total;
- const deltaPct=prev.metrics.total?delta/prev.metrics.total*100:null;
- setText('dailyCompareSubtitle',today.branch+' · '+today.date+' comparado com '+prev.date+'.');
- setText('dailyTodayTotal',money(today.metrics.total));setText('dailyPrevTotal',money(prev.metrics.total));
- setText('dailyTodayDate',today.date);setText('dailyPrevDate',prev.date);
- setText('dailyDelta',(delta>=0?'+':'')+money(delta));setText('dailyDeltaCaption',delta>=0?'Faturamento acima do dia anterior':'Faturamento abaixo do dia anterior');
- setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
- setText('dailyTodayCoupons',today.metrics.coupons===null?'—':num(today.metrics.coupons));
- setText('dailyPrevCoupons',prev.metrics.coupons===null?'—':num(prev.metrics.coupons));
- setText('dailyTodayTicket',today.metrics.ticket===null?'—':money(today.metrics.ticket));
- setText('dailyPrevTicket',prev.metrics.ticket===null?'—':money(prev.metrics.ticket));
+ const currentDate=new Date(today.date+'T00:00:00Z');
+ currentDate.setUTCDate(currentDate.getUTCDate()-1);
+ const expectedPrevDate=currentDate.toISOString().slice(0,10);
+ const prev=ready.filter(r=>r.branch===today.branch&&r.date===expectedPrevDate).sort((a,b)=>(b.importedAt||'').localeCompare(a.importedAt||''))[0]||null;
+ grid.style.display='grid';
+ if(!prev){
+  empty.style.display='block';
+  empty.textContent='Relatório de '+today.date+' carregado. Ainda não há relatório da mesma filial para o dia imediatamente anterior ('+expectedPrevDate+'). A variação será calculada quando esse dia também estiver importado.';
+ }else{
+  empty.style.display='none';
+ }
+ const reviewNeeded=[today,prev].filter(Boolean).some(r=>r.status==='needs_review');
+ setText('dailyCompareSubtitle',today.branch+' · '+today.date+(prev?' comparado com '+prev.date:'; falta '+expectedPrevDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
+ setText('dailyTodayTotal',money(today.metrics.total));
+ setText('dailyPrevTotal',prev?money(prev.metrics.total):'—');
+ setText('dailyTodayDate',today.date+(today.status==='needs_review'?' · revisão pendente':''));
+ setText('dailyPrevDate',prev?prev.date+(prev.status==='needs_review'?' · revisão pendente':''):'Data não importada');
+ if(prev){
+  const delta=today.metrics.total-prev.metrics.total;
+  const deltaPct=prev.metrics.total?delta/prev.metrics.total*100:null;
+  setText('dailyDelta',(delta>=0?'+':'')+money(delta));
+  setText('dailyDeltaCaption',delta>=0?'Faturamento acima do dia anterior':'Faturamento abaixo do dia anterior');
+  setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
+ }else{
+  setText('dailyDelta','—');
+  setText('dailyDeltaCaption','Aguardando relatório do dia anterior');
+  setText('dailyDeltaPct','—');
+ }
+ setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
+ setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
+ setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
+ setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
 }
+
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
@@ -479,12 +501,16 @@ window.setSupabaseDailyReports = function(rows){
     ticket:t.ticket_medio==null?null:Number(t.ticket_medio)
    },
    status:row.status||'needs_review',
-   source:'supabase'
+   source:'supabase',
+   importedAt:row.imported_at||''
   };
  }).filter(row=>row.date&&Number.isFinite(row.metrics.total));
- if(remote.length){
-  dailyReports=remote;
-  localStorage.setItem('marcopao.dailyReports',JSON.stringify(remote));
+ const latestPerDay=new Map();
+ for(const row of remote) latestPerDay.set(row.branch+'|'+row.date,row);
+ const uniqueDailyReports=[...latestPerDay.values()];
+ if(uniqueDailyReports.length){
+  dailyReports=uniqueDailyReports;
+  localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));
  }else{
   try{dailyReports=JSON.parse(localStorage.getItem('marcopao.dailyReports')||'[]')}catch(_){dailyReports=[]}
  }
