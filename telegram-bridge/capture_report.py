@@ -208,7 +208,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
-            "Prefer": "resolution=ignore-duplicates,return=minimal",
+            "Prefer": "resolution=merge-duplicates,return=minimal",
         },
     )
     try:
