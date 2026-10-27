@@ -28,8 +28,11 @@ def labels(message):
     return out
 
 async def latest(client, entity):
-    items = await client.get_messages(entity, limit=1)
-    return items[0] if items else None
+    # Telegram history includes our own outgoing messages. State decisions must
+    # use the most recent incoming bot message, never our own echoed choice.
+    items = await client.get_messages(entity, limit=20)
+    incoming = [m for m in items if not m.out]
+    return incoming[0] if incoming else (items[0] if items else None)
 
 async def wait_bot(client, entity, before_id, seconds=WAIT_SECONDS):
     for _ in range(seconds):
