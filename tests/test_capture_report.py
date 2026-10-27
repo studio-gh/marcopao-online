@@ -145,6 +145,13 @@ Quantidades de Cupons: 10
         self.assertNotEqual(first, other_report)
 
 
+    def test_daily_total_parses_when_telegram_collapses_metrics_to_one_line(self):
+        raw = "Venda do Dia Total de vendas nos Pdvs Dinheiro: R$ 100,00 PIX: R$ 20,00 POS Crédito: R$ 10,00 POS Débito: R$ 5,00 TEF: R$ 60,00 TICKET: R$ 5,00 Total: R$ 200,00 Quantidades de Cupons: 10 Ticket Médio: R$ 20,00"
+        totals, warnings = parse_report_data("sale_day", raw)
+        self.assertEqual(totals["total"], 200.00)
+        self.assertEqual(totals["cupons"], 10)
+        self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
+
     def test_type_aware_parser_reads_monthly_and_all_payment_methods(self):
         raw = """Venda Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA
 Total de vendas nos Pdvs
