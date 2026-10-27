@@ -831,7 +831,7 @@ async function refreshDailyRows() {
       ...row,
       id: [row.report_type,row.branch_name_raw,row.report_date||row.period_start].join('|'),
       totals: row.totals || {},
-      validation_notes: []
+      validation_notes: Array.isArray(row.totals?.validation_warnings) ? row.totals.validation_warnings : []
     }));
     lastSuccessfulSyncAt = new Date().toISOString();
     if (root) root.dataset.state = 'ok';
