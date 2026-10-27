@@ -200,17 +200,29 @@ def parse_report_data(report_type, raw):
         for line in lines:
             if not re.search(r"\d", line):
                 continue
-            money_match = re.search(r"^(.*?)\s+R\$\s*([\d.]+,\d{2})\s*$", line, re.IGNORECASE)
-            qty_match = re.search(r"^(.*?)\s+([\d.]+)\s*(kg|un(?:idade)?s?|pct|pacotes?)\s*$", line, re.IGNORECASE)
+            money_match = re.search(r"^(.*?)\s+R\$\s*([\d.]+,\d{2})(.*)$", line, re.IGNORECASE)
+            qty_match = re.search(r"([\d.]+,\d+)\s*(kg|un(?:idade)?s?|pct|pacotes?)\b", line, re.IGNORECASE)
+            name = ""
+            entry = {"raw": line}
             if money_match:
                 name = money_match.group(1).strip(" .:-")
-                if not re.match(r"^(total|faturamento|valor total)\b", name, re.IGNORECASE):
-                    entries.append({"name": name, "value": round(br_number(money_match.group(2)), 2), "raw": line})
+                if re.match(r"^(total|faturamento|valor total)\b", name, re.IGNORECASE):
+                    continue
+                entry["value"] = round(br_number(money_match.group(2)), 2)
             elif qty_match:
-                try:
-                    entries.append({"name": qty_match.group(1).strip(" .:-"), "quantity": float(qty_match.group(2).replace(".", "").replace(",", ".")), "unit": qty_match.group(3).lower(), "raw": line})
-                except ValueError:
-                    pass
+                name = line[:qty_match.start()].strip(" .:-")
+                entry["quantity"] = float(qty_match.group(1).replace(".", "").replace(",", "."))
+                entry["unit"] = qty_match.group(2).lower()
+            else:
+                continue
+            if qty_match:
+                entry["quantity"] = float(qty_match.group(1).replace(".", "").replace(",", "."))
+                entry["unit"] = qty_match.group(2).lower()
+                if not name:
+                    name = line[:qty_match.start()].strip(" .:-")
+            entry["name"] = name
+            if name:
+                entries.append(entry)
         totals["entries"] = entries
         totals["entry_count"] = len(entries)
         totals["raw_line_count"] = len(lines)
