@@ -197,32 +197,77 @@ def parse_report_data(report_type, raw):
     else:
         lines = [line.strip() for line in raw.splitlines() if line.strip()]
         entries = []
+        # Bellabyte ranks are block-structured: "1: PRODUCT", then Total/Quantidade/Preço lines.
+        blocks = []
+        current = None
         for line in lines:
-            if not re.search(r"\d", line):
-                continue
-            money_match = re.search(r"^(.*?)\s+R\$\s*([\d.]+,\d{2})(.*)$", line, re.IGNORECASE)
-            qty_match = re.search(r"([\d.]+,\d+)\s*(kg|un(?:idade)?s?|pct|pacotes?)\b", line, re.IGNORECASE)
-            name = ""
-            entry = {"raw": line}
-            if money_match:
-                name = money_match.group(1).strip(" .:-")
-                if re.match(r"^(total|faturamento|valor total)\b", name, re.IGNORECASE):
+            header = re.match(r"^\s*(\d+)\s*:\s*(.+?)\s*$", line)
+            if header:
+                if current:
+                    blocks.append(current)
+                current = {"rank": int(header.group(1)), "name": header.group(2).strip(), "raw_lines": [line]}
+            elif current:
+                current["raw_lines"].append(line)
+        if current:
+            blocks.append(current)
+
+        def parse_quantity(block_text):
+            match = re.search(r"Quantidade\s*:\s*([\d.]+(?:,\d+)?)\s*(kg|un(?:idade)?s?|pct|pacotes?)\b", block_text, re.IGNORECASE)
+            if not match:
+                return None, None
+            try:
+                quantity = float(match.group(1).replace(".", "").replace(",", "."))
+            except ValueError:
+                return None, None
+            unit = match.group(2).lower()
+            if unit.startswith("un"):
+                unit = "un"
+            return quantity, unit
+
+        def parse_price(block_text, patterns):
+            for pattern in patterns:
+                match = re.search(pattern, block_text, re.IGNORECASE)
+                if match:
+                    try:
+                        return round(br_number(match.group(1)), 2)
+                    except ValueError:
+                        continue
+            return None
+
+        for block in blocks:
+            block_text = "\n".join(block["raw_lines"])
+            entry = {"rank": block["rank"], "name": block["name"], "raw": block_text}
+            quantity, unit = parse_quantity(block_text)
+            if quantity is not None:
+                entry["quantity"] = quantity
+                entry["unit"] = unit
+            revenue = parse_price(block_text, [
+                r"Total\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                r"Faturamento\s*:?\s*R\$\s*([\d.]+,\d{2})",
+                r"Valor Total\s*:?\s*R\$\s*([\d.]+,\d{2})",
+            ])
+            if revenue is not None:
+                entry["value"] = revenue
+            unit_price = parse_price(block_text, [
+                r"Preço\s*M[eé]dio(?:\s+Venda)?\s*R?\$\s*:?\s*([\d.]+,\d{2})",
+                r"Preço\s*Atual\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                r"Preço\s*R\$\s*:?\s*([\d.]+,\d{2})",
+            ])
+            if unit_price is not None:
+                entry["unit_price"] = unit_price
+            entries.append(entry)
+
+        # Fallback for group summaries or report versions that aren't numbered.
+        if not entries:
+            for line in lines:
+                money_match = re.search(r"^(.*?)\s*(?:Total\s*)?R\$\s*:?\s*([\d.]+,\d{2})\s*$", line, re.IGNORECASE)
+                if not money_match:
                     continue
-                entry["value"] = round(br_number(money_match.group(2)), 2)
-            elif qty_match:
-                name = line[:qty_match.start()].strip(" .:-")
-                entry["quantity"] = float(qty_match.group(1).replace(".", "").replace(",", "."))
-                entry["unit"] = qty_match.group(2).lower()
-            else:
-                continue
-            if qty_match:
-                entry["quantity"] = float(qty_match.group(1).replace(".", "").replace(",", "."))
-                entry["unit"] = qty_match.group(2).lower()
-                if not name:
-                    name = line[:qty_match.start()].strip(" .:-")
-            entry["name"] = name
-            if name:
-                entries.append(entry)
+                name = re.sub(r"^\s*\d+\s*:\s*", "", money_match.group(1)).strip(" .:-")
+                if not name or re.match(r"^(total|faturamento|valor total)\b", name, re.IGNORECASE):
+                    continue
+                entries.append({"name": name, "value": round(br_number(money_match.group(2)), 2), "raw": line})
+
         totals["entries"] = entries
         totals["entry_count"] = len(entries)
         totals["raw_line_count"] = len(lines)
