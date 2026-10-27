@@ -552,7 +552,10 @@ async def main():
             persist_to_supabase(output, report_type, requested_period, local_now)
             card_report = await finish_card_prompt(client, entity)
             if card_report:
-                card_file = save_report(card_report, "sale_day_cards", requested_period)
+                card_file = save_report(
+                    card_report, "sale_day_cards", requested_period,
+                    raw_text=(card_report.message or "")
+                )
                 print(f"CARD_DETAILS_CAPTURED_FILE={card_file}")
             print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} cards_requested=true")
             return 0
