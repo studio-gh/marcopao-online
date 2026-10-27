@@ -369,6 +369,18 @@ async def main():
         combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
 
         if mode == "daily_yesterday":
+            # Avoid stale monthly/year-selection prompts returned from old bot history.
+            latest_text = norm(latest.message).lower()
+            if (("ano atual" in latest_text and "ano anterior" in latest_text)
+                    or ("selecione o mês" in latest_text and "outubro" in latest_text)
+                    or ("selecione a opção desejada" in latest_text and "outubro" in combined)):
+                print("DAILY_FLOW_BLOCKED_BY_STALE_MONTH_PROMPT: returning to a clean state instead of selecting a mismatched button.")
+                reset, reset_replies = await send_choice(client, entity, latest, "0", "recover daily collector from stale monthly-report prompt")
+                if not reset_replies:
+                    print("RESET_AFTER_STALE_MONTH_PROMPT_FAILED")
+                    return 16
+                print("RECOVERY_COMPLETE: clean-state reset sent; refusing to treat a monthly result as a daily report.")
+                return 0
             visible_labels = [label.strip().lower() for label in buttons(latest)]
             has_previous_day_button = any(
                 label == "anterior" or "dia anterior" in label for label in visible_labels
