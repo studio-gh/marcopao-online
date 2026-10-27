@@ -27,9 +27,18 @@ function ensureStructuredFilters(type){
   const wrap=document.querySelector('.structured-table-wrap');
   if(wrap)wrap.parentNode.insertBefore(root,wrap);
  }
+ const previous={category:document.getElementById('structuredCategoryFilter')?.value||'',unit:document.getElementById('structuredUnitFilter')?.value||'',sort:document.getElementById('structuredSort')?.value||'default'};
  const cats=[...new Set((window.structuredReports?.[type]?.entries||[]).map(categoryOf))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const units=[...new Set((window.structuredReports?.[type]?.entries||[]).map(unitOf).filter(Boolean))].sort();
  root.innerHTML='<label>Categoria<select id="structuredCategoryFilter"><option value="">Todas as categorias</option>'+cats.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></label><label>Unidade<select id="structuredUnitFilter"><option value="">Todas as unidades</option>'+units.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></label><label>Ordenar por<select id="structuredSort"><option value="default">Ordem original</option><option value="value-desc">Faturamento: maior primeiro</option><option value="value-asc">Faturamento: menor primeiro</option><option value="quantity-desc">Quantidade: maior primeiro</option><option value="quantity-asc">Quantidade: menor primeiro</option><option value="price-desc">Preço: maior primeiro</option><option value="price-asc">Preço: menor primeiro</option><option value="stock-asc">Estoque: menor primeiro</option><option value="name-asc">Produto: A a Z</option></select></label><span id="structuredFilterCount"></span>';
+ if(cats.includes(previous.category))document.getElementById('structuredCategoryFilter').value=previous.category;
+ if(units.includes(previous.unit))document.getElementById('structuredUnitFilter').value=previous.unit;
+ document.getElementById('structuredSort').value=previous.sort;
+ if(!document.getElementById('structuredFilterStyles')){
+  const style=document.createElement('style');style.id='structuredFilterStyles';
+  style.textContent='.structured-filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:14px 0}.structured-filters label{display:grid;gap:6px;color:var(--muted);font-size:11px;font-weight:700;min-width:170px}.structured-filters select{border:1px solid var(--line);border-radius:9px;background:var(--card);padding:10px;color:var(--ink);font:inherit;font-size:12px}.structured-filters #structuredFilterCount{margin-left:auto;color:var(--muted);font-size:12px;padding:10px 0}.category-chip{display:inline-block;border-radius:6px;padding:4px 7px;background:#eef2e9;color:#385648;font-size:10px;white-space:nowrap}.data-warning{display:inline-block;border-radius:6px;padding:4px 7px;background:#fff0e8;color:#9b3d26;font-size:11px;font-weight:700}';
+  document.head.appendChild(style);
+ }
  ['structuredCategoryFilter','structuredUnitFilter','structuredSort'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>window.renderStructuredReport(activeStructuredType)));
 }
 function kpis(items){document.getElementById('structuredKpis').innerHTML=items.map(x=>'<div class="insight-kpi"><span>'+esc(x.label)+'</span><strong>'+esc(x.value)+'</strong><small>'+esc(x.note||'')+'</small></div>').join('');}
