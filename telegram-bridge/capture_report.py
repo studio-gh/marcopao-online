@@ -249,7 +249,8 @@ def is_main_menu(text):
 def matches_report(text, mode):
     low = norm(text).lower()
     if mode == "daily_yesterday":
-        # Require report-body markers so a menu title or prompt cannot be mistaken for the report.
+        # Require explicit report-body markers. A generic "Venda do Dia Anterior"
+        # heading is not enough because Telegram history can contain stale reports.
         return (
             any(marker in low for marker in (
                 "venda total do dia", "total de vendas nos pdvs", "quantidades de cupons"
