@@ -33,7 +33,9 @@ jobs:
       - name: Validate dashboard JavaScript syntax
         run: node scripts/validate_dashboard.mjs
       - name: Validate collector Python syntax
-        run: python -m py_compile telegram-bridge/capture_report.py
+        run: python -m py_compile telegram-bridge/capture_report.py tests/test_capture_report.py
+      - name: Test parser with synthetic report data
+        run: python -m unittest discover -s tests -v
       - name: Collect report and persist it with review status
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
