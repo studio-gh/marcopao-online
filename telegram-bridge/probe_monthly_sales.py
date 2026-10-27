@@ -1,139 +1,101 @@
 #!/usr/bin/env python3
-"""Recover Bellabyte menu state, then select monthly sales and capture next prompt.
+"""Safe recovery from the Bellabyte monthly-report year-choice prompt.
 
-Uses only explicit menu options: 0 to return to branch selection, 1 for the
-known branch, and 2 for Venda Acumulada Mês. Stops if any expected state is
-not observed. Does not select a period or write to Supabase.
+Recognizes the bot's explicit "Ano Atual"/"Ano Anterior" choices and stops
+without choosing either. If the stale daily-sales submenu is present, sends
+only the documented 0 to return to branch selection. It never sends 1 while
+the year-choice prompt is active and never writes to Supabase.
 """
-import asyncio
-import os
-import sys
+import asyncio, os, sys
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
-BOT_USERNAME = "MonitorMarcopaoBot"
-WAIT_SECONDS = 8
+BOT = "MonitorMarcopaoBot"
 
-def normalized(message):
-    return " ".join((message or "").split())
+def norm(s):
+    return " ".join((s or "").split())
 
-def labels(message):
-    markup = getattr(message, "reply_markup", None)
-    out = []
-    for row in getattr(markup, "rows", []) or []:
-        for button in getattr(row, "buttons", []) or []:
-            label = getattr(button, "text", None)
-            if label:
-                out.append(str(label).strip())
-    return out
+def labels(m):
+    markup = getattr(m, "reply_markup", None)
+    return [str(b.text).strip() for row in (getattr(markup, "rows", []) or [])
+            for b in (getattr(row, "buttons", []) or []) if getattr(b, "text", None)]
 
-async def latest(client, entity):
-    # Telegram history includes our own outgoing messages. State decisions must
-    # use the most recent incoming bot message, never our own echoed choice.
-    items = await client.get_messages(entity, limit=20)
-    incoming = [m for m in items if not m.out]
-    return incoming[0] if incoming else (items[0] if items else None)
+async def latest_incoming(client, entity):
+    msgs = await client.get_messages(entity, limit=30)
+    incoming = [m for m in msgs if not m.out]
+    return incoming[0] if incoming else None
 
-async def wait_bot(client, entity, before_id, seconds=WAIT_SECONDS):
+async def wait_incoming(client, entity, before_id, seconds=12):
     for _ in range(seconds):
         await asyncio.sleep(1)
-        items = await client.get_messages(entity, limit=15)
-        incoming = [m for m in items if m.id > before_id and not m.out]
-        if incoming:
-            return sorted(incoming, key=lambda m: m.id)
+        msgs = await client.get_messages(entity, limit=30)
+        found = sorted([m for m in msgs if m.id > before_id and not m.out], key=lambda m:m.id)
+        if found:
+            return found
     return []
 
-def show(m):
-    text = normalized(m.message)
-    print(f"MSG_ID={m.id} [BOT] text={text[:500]!r}" + ("…" if len(text) > 500 else ""))
-    b = labels(m)
-    if b:
-        print("BUTTONS: " + " | ".join(b[:30]))
-    return text
-
-async def send_and_wait(client, entity, choice, action):
-    last = await latest(client, entity)
-    if not last:
-        print("STOPPED: no latest message before action.")
-        return None
-    print(f"ACTION: sending documented menu choice {choice} ({action}).")
+async def send_choice(client, entity, current, choice, reason):
+    print(f"ACTION: sending {choice!r} ({reason})")
     await client.send_message(entity, choice)
-    incoming = await wait_bot(client, entity, last.id, seconds=WAIT_SECONDS + 4)
+    incoming = await wait_incoming(client, entity, current.id)
     if not incoming:
-        print("NO_REPLY: no incoming bot response within wait window.")
+        print("NO_BOT_REPLY: no incoming response after the choice.")
         return None
     for m in incoming:
-        show(m)
-    return await latest(client, entity)
+        print(f"BOT_REPLY id={m.id} text={norm(m.message)[:500]!r}")
+        b = labels(m)
+        if b: print("BUTTONS: " + " | ".join(b[:20]))
+    return await latest_incoming(client, entity)
 
 async def main():
-    api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
-    api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
-    session = os.environ.get("TELEGRAM_SESSION_STRING", "").strip()
-    if not all((api_id, api_hash, session)):
-        print("CONFIG_MISSING: Telegram Actions secrets are required.")
-        return 2
-
-    client = TelegramClient(StringSession(session), int(api_id), api_hash)
+    api_id=os.environ.get("TELEGRAM_API_ID","").strip()
+    api_hash=os.environ.get("TELEGRAM_API_HASH","").strip()
+    session=os.environ.get("TELEGRAM_SESSION_STRING","").strip()
+    if not all((api_id,api_hash,session)):
+        print("CONFIG_MISSING: Telegram secrets required"); return 2
+    client=TelegramClient(StringSession(session),int(api_id),api_hash)
     try:
         await client.connect()
         if not await client.is_user_authorized():
-            print("SESSION_NOT_AUTHORIZED")
-            return 3
-        entity = await client.get_entity(BOT_USERNAME)
-        cur = await latest(client, entity)
+            print("SESSION_NOT_AUTHORIZED"); return 3
+        entity=await client.get_entity(BOT)
+        cur=await latest_incoming(client,entity)
         if not cur:
-            print("STOPPED: no conversation history.")
-            return 4
-        text = normalized(cur.message)
-        print(f"CURRENT_STATE: {text[:300]!r}")
-        low = text.lower()
-        # Normalize common Portuguese accents/punctuation variants in bot prompts.
-        state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
+            print("NO_INCOMING_BOT_MESSAGES"); return 4
+        text=norm(cur.message); low=text.lower()
+        print(f"CURRENT_BOT_STATE id={cur.id}: {text[:500]!r}")
+        b=labels(cur)
+        if b: print("BUTTONS: " + " | ".join(b[:20]))
 
-        if "dia anterior" in state_key and ("venda" in state_key or "opcao" in state_key):
-            print("STATE_CLASSIFIED: daily-sales submenu detected; documented menu footer says 0 returns to branch selection.")
-            cur = await send_and_wait(client, entity, "0", "return to branch selection")
-            if not cur:
-                return 5
-            text = normalized(cur.message)
-            low = text.lower()
-            state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
-
-        if "qual filial deseja se conectar" in state_key:
-            cur = await send_and_wait(client, entity, "1", "select Marcopão Lanchonete e Panificação Ltda")
-            if not cur:
-                return 6
-            text = normalized(cur.message)
-            low = text.lower()
-            state_key = low.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("é", "e").replace("ó", "o").replace("í", "i").replace("ú", "u")
-
-        if "precisa se logar" in state_key or "precisa fazer login" in state_key:
-            print("STOPPED: Bellabyte login is still required; no report choice sent.")
-            return 7
-
-        if "venda acumulada mês" not in low or "top 100" not in low:
-            print("STOPPED: main report menu not confirmed; no report choice sent.")
-            print("HINT: check whether this run used the latest main-branch commit and inspect the incoming BOT messages above.")
+        # Do not send arbitrary digits while the year-choice question is active.
+        if ("ano atual" in low and "ano anterior" in low) or ("ano atual" in " ".join(b).lower() and "ano anterior" in " ".join(b).lower()):
+            print("YEAR_CHOICE_PROMPT_DETECTED: bot is waiting for Ano Atual or Ano Anterior.")
+            print("SAFE_STOP: no option sent. This is not the monthly-report menu.")
             return 0
 
-        cur = await send_and_wait(client, entity, "2", "select Venda Acumulada Mês")
-        if not cur:
-            return 9
-        text = normalized(cur.message)
-        low = text.lower()
-        if "venda de hoje" in low and "dia anterior" in low:
-            print("WARNING: bot returned daily-sales submenu; monthly report not confirmed.")
+        # Recover only if the daily-sales submenu is explicitly current.
+        if "dia anterior" in low and ("venda" in low or "opção" in low or "opcao" in low):
+            print("DAILY_SALES_SUBMENU_DETECTED")
+            cur=await send_choice(client,entity,cur,"0","documented return to branch selection")
+            if not cur: return 5
+            text=norm(cur.message); low=text.lower()
+            print(f"STATE_AFTER_ZERO: {text[:500]!r}")
+            if "qual filial deseja se conectar" in low:
+                cur=await send_choice(client,entity,cur,"1","select known branch")
+                if not cur: return 6
+                text=norm(cur.message); low=text.lower()
+                print(f"STATE_AFTER_BRANCH: {text[:500]!r}")
+
+        if "venda acumulada mês" in low and "top 100" in low:
+            print("MAIN_REPORT_MENU_CONFIRMED")
+            print("SAFE_STOP: this recovery run does not select report or period.")
         else:
-            print("NEXT_STATE_CAPTURED: inspect the prompt above to identify the monthly report's next step.")
-        print("SAFE_END: no period selected and no Supabase writes made.")
+            print("SAFE_STOP: current state not confirmed as main report menu; no more options sent.")
         return 0
     finally:
         await client.disconnect()
 
-if __name__ == "__main__":
-    try:
-        sys.exit(asyncio.run(main()))
+if __name__=="__main__":
+    try: sys.exit(asyncio.run(main()))
     except Exception as exc:
-        print(f"PROBE_FAILED: {type(exc).__name__}: {exc}")
-        sys.exit(1)
+        print(f"RECOVERY_FAILED: {type(exc).__name__}: {exc}"); sys.exit(1)
