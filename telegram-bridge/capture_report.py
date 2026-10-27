@@ -374,6 +374,8 @@ async def finish_card_prompt(client, entity):
             print("CARD_DETAILS_RESPONSE_NOT_RECOGNIZED")
         else:
             print(f"CARD_DETAILS_CAPTURED message_id={card_report.id}; review card totals before combining with daily total.")
+        return card_report
+    return None
 
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
