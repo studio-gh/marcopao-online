@@ -195,8 +195,10 @@ def parse_report_data(report_type, raw):
             if abs(totals["payment_reconciliation_diff"]) > 0.02:
                 warnings.append("Soma dos meios de pagamento difere do total informado.")
     else:
-        # Some Bellabyte responses place all ranked items on one line. Split before each rank marker.
-        expanded_raw = re.sub(r"\s+(?=\d+\s*:\s+\S)", "\n", raw)
+        # Bellabyte often sends 30 ranked rows per Telegram message on a single line.
+        # Split on every rank marker, even when a message chunk was joined with literal spaces.
+        expanded_raw = re.sub(r"(?<!^)(?:\s|\\n|\\r)+(?=\d{1,3}\s*:\s*\S)", "\n", raw)
+        expanded_raw = expanded_raw.replace("\\n", "\n").replace("\\r", "\n")
         lines = [line.strip() for line in expanded_raw.splitlines() if line.strip()]
         entries = []
         # Bellabyte ranks are block-structured: "1: PRODUCT", then Total/Quantidade/Preço lines.
@@ -238,7 +240,12 @@ def parse_report_data(report_type, raw):
 
         for block in blocks:
             block_text = "\n".join(block["raw_lines"])
-            entry = {"rank": block["rank"], "name": block["name"], "raw": block_text}
+            # The heading line can contain the full row, not just the product/group name.
+            clean_name = re.split(
+                r"\s+(?=(?:Total\s*R\$|Faturamento\s*:|Valor Total\s*:|Quantidade\s*:|Preço\s*(?:Atual|M[eé]dio|Medio)\s*:))",
+                block["name"], maxsplit=1, flags=re.IGNORECASE
+            )[0].strip(" .:-")
+            entry = {"rank": block["rank"], "name": clean_name or block["name"], "raw": block_text}
             quantity, unit = parse_quantity(block_text)
             if quantity is not None:
                 entry["quantity"] = quantity
@@ -257,6 +264,8 @@ def parse_report_data(report_type, raw):
             ])
             if unit_price is not None:
                 entry["unit_price"] = unit_price
+                if report_type == "sales_by_group":
+                    entry["average"] = unit_price
             entries.append(entry)
 
         # Fallback for report variants where a product row and its metrics share one line.
@@ -289,6 +298,10 @@ def parse_report_data(report_type, raw):
         totals["raw_line_count"] = len(lines)
         if not entries:
             warnings.append("Formato tabular não reconhecido automaticamente; conteúdo bruto preservado para revisão.")
+        elif report_type in {"top_value", "top_quantity"} and len(entries) < 80:
+            warnings.append(f"Ranking incompleto: {len(entries)} linhas reconhecidas, esperado até 100. Conferir captura e quebras de mensagem.")
+        elif report_type == "sales_by_group" and len(entries) < 2:
+            warnings.append("Poucos grupos reconhecidos; conferir separação das linhas do relatório.")
     totals["validation_warnings"] = warnings
     return totals, warnings
 
@@ -877,8 +890,12 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
         if daily_selection_confirmed and daily_selection_after_id is not None:
             replies = [message for message in replies if getattr(message, "id", 0) > daily_selection_after_id]
     else:
-        latest, replies = await resolve_period_selectors(client, entity, latest, replies, requested_period, report_type)
-        latest, replies = await resolve_group_scope(client, entity, latest, replies, report_type)
+        # Report 13 first asks for a group scope, then a year/month. Resolve in that order.
+        if report_type in {"ticket_average", "products_by_group"}:
+            latest, replies = await resolve_group_scope(client, entity, latest, replies, report_type)
+            latest, replies = await resolve_period_selectors(client, entity, latest, replies, requested_period, report_type)
+        else:
+            latest, replies = await resolve_period_selectors(client, entity, latest, replies, requested_period, report_type)
 
     report, report_text = find_report_payload(replies, report_type)
     if report is None:
