@@ -105,9 +105,6 @@ async def ensure_bellabyte_login(client, entity, current):
 def br_number(value):
     return float(value.replace(".", "").replace(",", "."))
 
-def br_number(value):
-    return float(value.replace(".", "").replace(",", "."))
-
 def parse_report_data(report_type, raw):
     """Parse report-specific summary fields and preserve table-like lines without guessing."""
     raw = raw or ""
