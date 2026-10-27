@@ -410,7 +410,7 @@ def matches_report(text, mode):
 async def search_recent_report(client, entity, mode, after_id=None, limit=100):
     # Scan enough history to recover missed days without flooding Telegram with unbounded history.
     items = await client.get_messages(entity, limit=limit)
-    candidates = [m for m in items if not m.out and matches_report(m.message, mode)]
+    candidates = [m for m in items if not m.out and matches_report_type(m.message, mode)]
     if after_id is not None:
         candidates = [m for m in candidates if m.id > after_id]
     return max(candidates, key=lambda m: m.id) if candidates else None
