@@ -20,8 +20,9 @@ jobs:
       - name: Install Telethon
         run: python -m pip install --disable-pip-version-check "Telethon>=1.36,<2"
       - name: Validate dashboard JavaScript syntax
-        run: |
-          node --check <(sed -n '/<script>/,/<\\/script>/p' index.html | sed '1d;$d')
+        run: node scripts/validate_dashboard.mjs
+      - name: Validate collector Python syntax
+        run: python -m py_compile telegram-bridge/capture_report.py
       - name: Select monthly sales report and capture prompt
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
