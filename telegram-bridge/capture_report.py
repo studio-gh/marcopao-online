@@ -155,6 +155,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     ] + warnings
     row = {
         "report_type": report_type,
+        "branch_id": None,
         "branch_name_raw": branch,
         "period_start": period_start,
         "period_end": period_end,
