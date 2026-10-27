@@ -294,7 +294,7 @@ function parseReport(text,date){
  const d={...data};
  d.cash=parseMoney(text,[/Dinheiro\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cash);
  d.pix=parseMoney(text,[/PIX\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.pix);
- d.tef=parseMoney(text,[/TEF\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.tef);\n  d.posCredit=parseMoney(text,[/POS Crédito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posCredit||0);\n  d.posDebit=parseMoney(text,[/POS Débito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posDebit||0);\n  d.ticketMethod=parseMoney(text,[/TICKET\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.ticketMethod||0);
+ d.tef=parseMoney(text,[/TEF\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.tef);\n d.posCredit=parseMoney(text,[/POS Crédito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posCredit||0);\n d.posDebit=parseMoney(text,[/POS Débito\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.posDebit||0);\n d.ticketMethod=parseMoney(text,[/TICKET\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.ticketMethod||0);
  d.total=parseMoney(text,[/Venda Total do dia\s*:\s*R\$\s*([\d.]+,\d{2})/i,/Total\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.total);
  d.coupons=parseCount(text,[/Quantidades?\s+de\s+Cupons\s*:\s*([\d.]+)/i],d.coupons);
  d.ticket=parseMoney(text,[/Ticket Médio\s*:\s*R?\$?\s*([\d.]+,\d{2})/i],d.coupons?d.total/d.coupons:d.ticket);
