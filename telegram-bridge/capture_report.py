@@ -532,14 +532,18 @@ async def main():
                 print("RECOVERY_COMPLETE: returned to a clean menu state; daily report not captured this run.")
                 return 0
 
-            report = await wait_for_report(client, entity, mode, after_id=menu_id)
+            # The selected "Dia anterior" response is often followed by a card prompt.
+            # Find the report body in the fresh replies and always answer the card prompt.
+            report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
             if not report:
-                report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
+                report = await wait_for_report(client, entity, mode, after_id=menu_id)
             if not report:
                 latest_now = await latest_incoming(client, entity)
                 if latest_now:
                     latest_text = norm(latest_now.message).lower()
-                    if any(marker in latest_text for marker in ("venda do dia", "venda de hoje", "venda de ontem")) and ("total" in latest_text or "cupons" in latest_text):
+                    if "deseja visualizar os cartões" in latest_text or "deseja visualizar os cartoes" in latest_text:
+                        print("CARD_PROMPT_WITHOUT_DAILY_REPORT: stopping instead of re-requesting report 1.")
+                    else:
                         print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
                 return 8
             latest_text = norm(report.message).lower()
@@ -548,10 +552,9 @@ async def main():
                 print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
                 return 17
             output = save_report(report, report_type, requested_period)
-            # Always answer "Sim" to the optional card-details prompt. Keep the raw card
-            # detail in a linked review artifact rather than blindly adding it to daily sales,
-            # since card subtotals can overlap with POS/TEF already counted in the daily total.
             persist_to_supabase(output, report_type, requested_period, local_now)
+            # Answer the optional card-details prompt now. This must happen before returning
+            # to the menu, otherwise subsequent runs can get trapped in the same report-1 loop.
             card_report = await finish_card_prompt(client, entity)
             if card_report:
                 card_file = save_report(
