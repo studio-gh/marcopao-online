@@ -47,7 +47,7 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 
 
-.day-compare{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:0 0 18px}
+.day-compare{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;margin:0 0 18px;box-shadow:var(--shadow)}
 .day-compare h2{margin:0 0 6px;font-size:18px}.day-compare .sub{color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:16px}
 .day-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .day-kpi{padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff}
@@ -79,7 +79,7 @@
 <div class="shell">
   <header class="topbar">
     <div class="brand"><div class="mark">M</div><div><div class="brandname">marcopão <span style="font-weight:500;color:#7a887f">/ visão de vendas</span></div><div class="brandmeta">Painel de acompanhamento · Relatórios Bellabyte</div></div></div>
-    <div class="top-actions"><span class="pill"><span class="dot"></span> Resumo mensal · 26/10 às 15:50</span><button class="btn" id="importBtn">＋ Atualizar relatório</button><button class="btn" id="refreshDashboard" type="button">Atualizar dados</button><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>
+    <div class="top-actions"><span class="pill"><span class="dot"></span> Dados reais do Supabase</span><button class="btn" id="importBtn">＋ Atualizar relatório</button><button class="btn" id="refreshDashboard" type="button">Atualizar dados</button><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>
   </header>
 
   <section class="filters" aria-label="Filtros inteligentes">
@@ -99,9 +99,6 @@
     </div>
     <div class="filter-field" id="reportDateFilterWrap" hidden><label for="reportDateFilter">DATA DA VISÃO DIÁRIA</label><input id="reportDateFilter" type="date">
     </div>
-    <div class="filter-field"><label for="branchFilter">FILIAL</label>
-      <select id="branchFilter"><option value="all">Todas as filiais</option><option value="current">Filial do relatório carregado</option></select>
-    </div>
     <div class="filter-field"><label for="searchFilter">BUSCAR NO RELATÓRIO</label>
       <input id="searchFilter" type="search" placeholder="Ex.: pão francês, fornecedor, produto...">
     </div>
@@ -112,19 +109,6 @@
     <p id="otherReportDescription">Cole o conteúdo do relatório correspondente do Monitorbot para pesquisar e consultar o texto.</p>
     <div class="empty-state" id="otherReportEmpty">Este relatório ainda não foi importado. Clique em “Atualizar relatório” e cole a resposta correspondente do Monitorbot.</div>
     <div class="raw-results" id="otherReportRaw" style="display:none"></div>
-  </section>
-
-  <section class="hero">
-    <div class="hero-main">
-      <div class="eyebrow">Resumo de vendas · Marcopão</div>
-      <h1>Um olhar claro<br>sobre o mês.</h1>
-      <p>Um retrato do faturamento acumulado de outubro, com meios de pagamento e participação dos grupos.</p>
-      <div class="hero-bottom"><div><div class="total" id="heroTotal">R$ 201.624,25</div><div class="hero-note">Venda total informada no relatório</div></div></div>
-    </div>
-    <div class="hero-side">
-      <div><div class="eyebrow">Ticket médio</div><div class="big" id="heroTicket">R$ 16,59</div><p>Valor médio por cupom registrado no relatório.</p></div>
-      <div class="side-foot" id="reportPeriod">PERÍODO: OUTUBRO · ATUALIZADO ÀS 15:50</div>
-    </div>
   </section>
 
   <section class="day-compare hidden-by-filter" id="dailyCompareView" aria-live="polite">
@@ -143,7 +127,20 @@
     </div>
   </section>
 
-  <div class="section-head"><div><h2>Indicadores principais</h2><p>Dados extraídos do texto enviado pelo Telegram.</p></div><span class="tag" id="branchTag">MARCOPÃO · FILIAL DO RELATÓRIO</span></div>
+  <section class="hero hidden-by-filter">
+    <div class="hero-main">
+      <div class="eyebrow">Resumo de vendas · Marcopão</div>
+      <h1>Um olhar claro<br>sobre o mês.</h1>
+      <p>Um retrato do faturamento acumulado de outubro, com meios de pagamento e participação dos grupos.</p>
+      <div class="hero-bottom"><div><div class="total" id="heroTotal">R$ 201.624,25</div><div class="hero-note">Venda total informada no relatório</div></div></div>
+    </div>
+    <div class="hero-side">
+      <div><div class="eyebrow">Ticket médio</div><div class="big" id="heroTicket">R$ 16,59</div><p>Valor médio por cupom registrado no relatório.</p></div>
+      <div class="side-foot" id="reportPeriod">PERÍODO: OUTUBRO · ATUALIZADO ÀS 15:50</div>
+    </div>
+  </section>
+
+  <div class="section-head"><div><h2>Indicadores principais</h2><p>Dados extraídos do texto enviado pelo Telegram.</p></div><span class="tag hidden-by-filter" id="branchTag">MARCOPÃO</span></div>
   <section class="grid">
     <div class="metric"><div class="metric-label">Cupons registrados <span class="mini-icon">#</span></div><div class="metric-value" id="coupons">12.153</div><div class="metric-foot">Quantidade de cupons informada</div></div>
     <div class="metric"><div class="metric-label">Dinheiro <span class="mini-icon">$</span></div><div class="metric-value" id="cash">R$ 42.613,28</div><div class="metric-foot" id="cashShare">27,2% do total</div></div>
@@ -348,11 +345,11 @@ function parseDayMetrics(text){
 function renderDailyComparison(){
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
- const selectedBranch=document.getElementById('branchFilter').value;
+ const selectedBranch='all';
  const period=document.getElementById('periodFilter').value;
  const customDate=document.getElementById('reportDateFilter')?.value||'';
  let ready=dailyReports
-  .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)&&(selectedBranch==='all'||r.branch===selectedBranch))
+  .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total))
   .sort((a,b)=>a.date.localeCompare(b.date));
  if(period==='today'){
   const todayIso=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -367,7 +364,7 @@ function renderDailyComparison(){
  if(!today){
   empty.style.display='block';grid.style.display='none';
   const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':period==='month'?' no mês atual':'';
-  setText('dailyCompareSubtitle','Comparação diária da filial selecionada.');
+  setText('dailyCompareSubtitle','Marcopão · comparação com o último relatório diário disponível.');
   empty.textContent='Nenhum relatório diário encontrado'+suffix+'. A visão mensal não será usada como substituta; são necessários dados diários reais.';
   return;
  }
@@ -380,7 +377,7 @@ function renderDailyComparison(){
  empty.style.display=prev?'none':'block';
  if(!prev)empty.textContent='Relatório de '+today.date+' carregado. Falta o relatório de '+expectedPrevDate+' da mesma filial; a comparação ficará incompleta até a coleta desse dia.';
  const reviewNeeded=[today,prev].filter(Boolean).some(r=>r.status==='needs_review');
- setText('dailyCompareSubtitle',today.branch+' · '+today.date+(prev?' comparado com '+prev.date:'; falta '+expectedPrevDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
+ setText('dailyCompareSubtitle','Marcopão · '+today.date+(prev?' comparado com '+prev.date:'; falta '+expectedPrevDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
  setText('dailyTodayTotal',money(today.metrics.total));
  setText('dailyPrevTotal',prev?money(prev.metrics.total):'—');
  setText('dailyTodayDate',today.date+(today.status==='needs_review'?' · revisão pendente':''));
@@ -473,9 +470,9 @@ document.getElementById('groupDetailSelect').addEventListener('change',renderGro
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
 document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
 document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
-document.getElementById('branchFilter').addEventListener('change',applyFilters);
+
 document.getElementById('searchFilter').addEventListener('input',applyFilters);
-document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('branchFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
+document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
 function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 window.setSupabaseDailyReports = function(rows){
