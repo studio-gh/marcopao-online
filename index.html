@@ -324,11 +324,12 @@ function parseReport(text,date){
  return d;
 }
 function reportDay(text, fallback){
- const iso=(text.match(/(?:Data|Referência|Periodo|Período)\\s*[:·]?\\s*(\\d{2}\\/\\d{2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})/i)||[])[1];
- const v=iso||fallback||"";
- if(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v;
- const m=v.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
- return m?m[3]+"-"+m[2]+"-"+m[1]:"";
+  const iso=(text.match(/(?:Data|Referência|Periodo|Período)\s*[:·]?\s*(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/i)||[])[1];
+  const v=iso||fallback||"";
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m=v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m?m[3]+"-"+m[2]+"-"+m[1]:"";
+}
 }
 function parseDayMetrics(text){
  const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
