@@ -49,7 +49,8 @@ async def wait_replies(client, entity, after_id, timeout=30):
     return []
 
 async def send_choice(client, entity, current, choice, reason):
-    print(f"ACTION: sending {choice!r} ({reason})")
+    safe_choice = "<redacted>" if ("password" in reason.lower() or "login" in reason.lower()) else repr(choice)
+    print(f"ACTION: sending {safe_choice} ({reason})")
     await client.send_message(entity, choice)
     replies = await wait_replies(client, entity, current.id)
     if not replies:
@@ -203,18 +204,18 @@ def is_main_menu(text):
 def matches_report(text, mode):
     low = norm(text).lower()
     if mode == "daily_yesterday":
-        return (("venda do dia" in low or "venda de hoje" in low or "venda de ontem" in low)
-                and ("total" in low or "cupons" in low)
-                and "venda acumulada do mês" not in low)
+        daily_title = any(marker in low for marker in (
+            "venda do dia", "venda de hoje", "venda de ontem",
+            "venda total do dia", "total de vendas nos pdvs"
+        ))
+        return daily_title and ("total" in low or "cupons" in low) and "venda acumulada do mês" not in low
     return "venda acumulada do mês" in low and "total" in low
 
 async def search_recent_report(client, entity, mode, after_id=None):
     items = await client.get_messages(entity, limit=100)
     candidates = [m for m in items if not m.out and matches_report(m.message, mode)]
     if after_id is not None:
-        new_candidates = [m for m in candidates if m.id > after_id]
-        if new_candidates:
-            candidates = new_candidates
+        candidates = [m for m in candidates if m.id > after_id]
     return max(candidates, key=lambda m: m.id) if candidates else None
 
 async def recover_menu(client, entity, current):
@@ -292,6 +293,26 @@ async def main():
         if not current:
             print("NO_INCOMING_BOT_MESSAGES")
             return 5
+
+        # Bellabyte application login is separate from Telegram session authorization.
+        state = norm(current.message).lower()
+        if "precisa se logar" in state or "precisa fazer login" in state:
+            password = os.environ.get("BELLABYTE_PASSWORD", "")
+            if not password:
+                print("BELLABYTE_PASSWORD_MISSING")
+                return 13
+            current, login_replies = await send_choice(client, entity, current, password, "Bellabyte application login password")
+            if not login_replies:
+                print("BELLABYTE_LOGIN_NO_REPLY")
+                return 14
+            latest = await latest_incoming(client, entity)
+            if latest:
+                current = latest
+            state = norm(current.message).lower()
+            if "precisa se logar" in state or "precisa fazer login" in state:
+                print("BELLABYTE_LOGIN_NOT_ACCEPTED")
+                return 15
+
         initial_preview = norm(current.message)
         initial_low = initial_preview.lower()
         if ("venda acumulada do mês" in initial_low or "venda do dia" in initial_low or "venda de hoje" in initial_low or "venda de ontem" in initial_low) and ("total" in initial_low or "cupons" in initial_low):
@@ -314,19 +335,45 @@ async def main():
         combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
 
         if mode == "daily_yesterday":
-            if "dia anterior" in combined or ("hoje" in combined and "anterior" in combined):
+            visible_labels = [label.strip().lower() for label in buttons(latest)]
+            has_previous_day_button = any(
+                label == "anterior" or "dia anterior" in label for label in visible_labels
+            )
+            prompt_mentions_day_choices = "dia anterior" in norm(latest.message).lower() or ("hoje" in norm(latest.message).lower() and "anterior" in norm(latest.message).lower())
+            if has_previous_day_button:
                 latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "request the previous day's sales")
                 if not replies2:
                     return 7
+                replies.extend(replies2)
+            elif prompt_mentions_day_choices and not visible_labels:
+                latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "request the previous day's sales from an explicit text prompt")
+                if not replies2:
+                    return 7
+                replies.extend(replies2)
+            elif prompt_mentions_day_choices and visible_labels:
+                # Do not choose the wrong year/month buttons when the prompt and keyboard disagree.
+                print("DAILY_MENU_MISMATCH: visible buttons do not include Dia anterior; resetting to branch selection.")
+                reset, reset_replies = await send_choice(client, entity, latest, "0", "recover mismatched daily menu")
+                if not reset_replies:
+                    print("RESET_AFTER_DAILY_MISMATCH_FAILED")
+                    return 16
+                print("RECOVERY_COMPLETE: returned to a clean menu state; daily report not captured this run.")
+                return 0
+
             report = await search_recent_report(client, entity, mode, after_id=menu_id)
             if not report:
                 report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
             if not report:
                 latest_now = await latest_incoming(client, entity)
                 if latest_now:
-                    print(f"DAILY_REPORT_NOT_FOUND; current prompt={norm(latest_now.message)[:1200]!r}; buttons={buttons(latest_now)!r}")
+                    latest_text = norm(latest_now.message).lower()
+                    if any(marker in latest_text for marker in ("venda do dia", "venda de hoje", "venda de ontem")) and ("total" in latest_text or "cupons" in latest_text):
+                        print(f"DAILY_REPORT_NOT_FOUND; latest_report_like_message_redacted=true chars={len(latest_now.message or '')}")
+                    else:
+                        print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={norm(latest_now.message)[:220]!r}; buttons={buttons(latest_now)!r}")
                 return 8
-            save_report(report, report_type, requested_period)
+            output = save_report(report, report_type, requested_period)
+            persist_to_supabase(output, report_type, requested_period, local_now)
             await finish_card_prompt(client, entity)
             return 0
 
@@ -349,7 +396,8 @@ async def main():
             if latest_now:
                 print(f"MONTHLY_REPORT_NOT_FOUND; current prompt={norm(latest_now.message)[:1200]!r}; buttons={buttons(latest_now)!r}")
             return 11
-        save_report(report, report_type, requested_period)
+        output = save_report(report, report_type, requested_period)
+        persist_to_supabase(output, report_type, requested_period, local_now)
         await finish_card_prompt(client, entity)
         return 0
     finally:
