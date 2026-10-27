@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture Bellabyte daily-yesterday or monthly report as JSON; never writes to Supabase."""
+"""Capture Bellabyte sales reports and persist raw data plus parsed totals to Supabase for review."""
 import asyncio
 import hashlib
 import json
