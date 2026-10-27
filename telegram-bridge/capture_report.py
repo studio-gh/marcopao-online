@@ -257,16 +257,30 @@ def parse_report_data(report_type, raw):
                 entry["unit_price"] = unit_price
             entries.append(entry)
 
-        # Fallback for group summaries or report versions that aren't numbered.
+        # Fallback for report variants where a product row and its metrics share one line.
         if not entries:
             for line in lines:
-                money_match = re.search(r"^(.*?)\s*(?:Total\s*)?R\$\s*:?\s*([\d.]+,\d{2})\s*$", line, re.IGNORECASE)
-                if not money_match:
+                money_match = re.search(r"R\$\s*:?\s*([\d.]+,\d{2})", line, re.IGNORECASE)
+                qty_match = re.search(r"([\d.]+(?:,\d+)?)\s*(kg|un(?:idade)?s?|pct|pacotes?)\b", line, re.IGNORECASE)
+                if not money_match and not qty_match:
                     continue
-                name = re.sub(r"^\s*\d+\s*:\s*", "", money_match.group(1)).strip(" .:-")
-                if not name or re.match(r"^(total|faturamento|valor total)\b", name, re.IGNORECASE):
+                name = line
+                if money_match:
+                    name = re.sub(r"R\$\s*:?\s*[\d.]+,\d{2}", "", name, count=1, flags=re.IGNORECASE)
+                if qty_match:
+                    name = re.sub(r"[\d.]+(?:,\d+)?\s*(?:kg|un(?:idade)?s?|pct|pacotes?)\b", "", name, count=1, flags=re.IGNORECASE)
+                name = re.sub(r"^\s*\d+\s*:\s*", "", name)
+                name = re.sub(r"\s*[-:·]+\s*", " ", name).strip(" .:-")
+                if not name or re.match(r"^(total|faturamento|valor total|preço|preco)\b", name, re.IGNORECASE):
                     continue
-                entries.append({"name": name, "value": round(br_number(money_match.group(2)), 2), "raw": line})
+                entry = {"name": name, "raw": line}
+                if money_match:
+                    entry["value"] = round(br_number(money_match.group(1)), 2)
+                if qty_match:
+                    entry["quantity"] = float(qty_match.group(1).replace(".", "").replace(",", "."))
+                    unit = qty_match.group(2).lower()
+                    entry["unit"] = "un" if unit.startswith("un") else unit
+                entries.append(entry)
 
         totals["entries"] = entries
         totals["entry_count"] = len(entries)
