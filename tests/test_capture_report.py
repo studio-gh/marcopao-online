@@ -250,6 +250,15 @@ Ticket Médio: 16,53
         self.assertIn("PAO FRANCES", raw)
         self.assertIn("PAO DE QUEIJO", raw)
 
+    def test_ticket_average_fallback_accepts_price_only_rows(self):
+        messages = [
+            self.fake_message("Informe a data", ("Hoje", "Outubro"), 1),
+            self.fake_message("PAO FRANCES Quantidade: 100 KG Preço:R$24,99", ("1", "2"), 2),
+        ]
+        report, raw = find_report_payload(messages, "ticket_average")
+        self.assertEqual(report.id, 2)
+        self.assertIn("PAO FRANCES", raw)
+
     def test_group_title_is_recognized_even_when_body_is_a_separate_message(self):
         self.assertTrue(report_title_match("Vendas por grupoAcumulada do Mês de Outubro Filial: MARCOPAO", "sales_by_group"))
         self.assertTrue(report_title_match("Vendas de Produto Por Grupo Acumulada do Mês", "products_by_group"))
