@@ -109,52 +109,65 @@ def br_number(value):
     return float(value.replace(".", "").replace(",", "."))
 
 def parse_report_data(report_type, raw):
-    """Parse only fields that belong to a report; never infer a sales total from a ranking."""
+    """Parse report-specific summary fields and preserve table-like lines without guessing."""
     raw = raw or ""
     text = norm(raw)
     low = text.lower()
     totals = {}
     warnings = []
 
-    def money(key, pattern):
-        match = re.search(pattern, raw, re.IGNORECASE)
-        if match:
-            try:
-                totals[key] = round(br_number(match.group(1)), 2)
-            except ValueError:
-                warnings.append(f"Valor inválido: {key}")
-
-    def integer(key, pattern):
-        match = re.search(pattern, raw, re.IGNORECASE)
-        if match:
-            totals[key] = int(match.group(1).replace(".", ""))
-
-    money_patterns = {
-        "dinheiro": r"Dinheiro\\s*: ?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pix": r"PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pos_credito": r"POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pos_debito": r"POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "tef": r"TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "ticket_pagamento": r"TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "ticket_medio": r"Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-    }
+    def find_money(pattern):
+        match = re.search(pattern, raw, re.IGNORECASE | re.MULTILINE)
+        if not match:
+            return None
+        try:
+            return round(br_number(match.group(1)), 2)
+        except ValueError:
+            return None
 
     if report_type in {"sale_day", "monthly_sales"}:
         if report_type == "sale_day":
-            if "venda acumulada do mês" in low or not any(k in low for k in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia", "total de vendas nos pdvs")):
+            if "venda acumulada do mês" in low or not any(x in low for x in ("venda do dia", "venda de hoje", "venda de ontem", "venda total do dia", "total de vendas nos pdvs")):
                 raise ValueError("Resposta não corresponde ao relatório de venda do dia.")
-        else:
-            if "venda acumulada do mês" not in low:
-                raise ValueError("Resposta não corresponde ao relatório acumulado do mês.")
-        for key, pattern in money_patterns.items():
-            money(key, pattern)
-        money("total", r"(?:Venda Total do dia|Total de vendas nos Pdvs\\s*\\nTotal|^Total)\\s*: ?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
-        integer("cupons", r"Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)")
-        integer("cupons_cancelados", r"Qtd de Cupons cancelados\\s*:?\\s*([\\d.]+)")
-        money("valor_vendas_nao_concluidas", r"Venda não Concluída\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
-        money("valor_itens_cancelados", r"Vlr Total Item Canc\\.\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        elif "venda acumulada do mês" not in low:
+            raise ValueError("Resposta não corresponde ao relatório acumulado do mês.")
+
+        patterns = {
+            "dinheiro": r"Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "pix": r"PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "pos_credito": r"POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "pos_debito": r"POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "tef": r"TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "ticket_pagamento": r"TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "ticket_medio": r"Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        }
+        for key, pattern in patterns.items():
+            value = find_money(pattern)
+            if value is not None:
+                totals[key] = value
+        total = find_money(r"^(?:Venda Total do dia|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        if total is None:
+            total = find_money(r"^Total de vendas nos Pdvs\\s*\\n\\s*Total\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})")
+        if total is not None:
+            totals["total"] = total
+        coupons = re.search(r"Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)", raw, re.IGNORECASE)
+        if coupons:
+            totals["cupons"] = int(coupons.group(1).replace(".", ""))
+        for key, pattern in {
+            "cupons_cancelados": r"Qtd de Cupons cancelados\\s*:?\\s*([\\d.]+)",
+        }.items():
+            match = re.search(pattern, raw, re.IGNORECASE)
+            if match:
+                totals[key] = int(match.group(1).replace(".", ""))
+        for key, pattern in {
+            "valor_vendas_nao_concluidas": r"Venda não Conclu[ií]da\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+            "valor_itens_cancelados": r"Vlr Total Item Canc\\.\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        }.items():
+            value = find_money(pattern)
+            if value is not None:
+                totals[key] = value
         if "total" not in totals:
-            warnings.append("Total de vendas não foi identificado.")
+            raise ValueError("Total de vendas não foi identificado.")
         if "cupons" not in totals:
             warnings.append("Quantidade de cupons não foi identificada.")
         payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
@@ -163,35 +176,32 @@ def parse_report_data(report_type, raw):
         totals["card_sales_included"] = not any(k in missing for k in ("pos_credito", "pos_debito", "tef"))
         if missing:
             warnings.append("Meios de pagamento ausentes: " + ", ".join(missing) + ".")
-        if "total" in totals and not missing:
+        if not missing:
             payment_sum = round(sum(totals[k] for k in payment_keys), 2)
             totals["payment_methods_sum"] = payment_sum
             totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
             if abs(totals["payment_reconciliation_diff"]) > 0.02:
                 warnings.append("Soma dos meios de pagamento difere do total informado.")
-    elif report_type in {"top_value", "top_quantity", "ticket_average", "sales_by_group", "products_by_group"}:
-        # Structured rows are kept as raw report content and parsed into a stable JSON list.
+    else:
         lines = [line.strip() for line in raw.splitlines() if line.strip()]
         entries = []
         for line in lines:
-            money_match = re.search(r"^(.*?)\\s+(?:R\\$\\s*)?([\\d.]+,\\d{2})\\s*$", line, re.IGNORECASE)
+            if line.lower() in {"top 100 valor", "top 100 por valor", "top 100 quantidade", "top 100 por quantidade", "vendas por grupo", "total de vendas por grupo", "vendas de produto por grupo"}:
+                continue
+            money_match = re.search(r"^(.*?)\\s+R?\\$?\\s*([\\d.]+,\\d{2})\\s*$", line, re.IGNORECASE)
             qty_match = re.search(r"^(.*?)\\s+([\\d.]+)\\s*(kg|un(?:idade)?s?|pct|pacotes?)\\s*$", line, re.IGNORECASE)
-            if money_match and not re.search(r"^(total|faturamento|valor total)\\b", line, re.IGNORECASE):
+            if money_match and not re.match(r"^(total|faturamento|valor total)\\b", line, re.IGNORECASE):
                 entries.append({"name": money_match.group(1).strip(" .:-"), "value": round(br_number(money_match.group(2)), 2), "raw": line})
             elif qty_match:
                 try:
                     entries.append({"name": qty_match.group(1).strip(" .:-"), "quantity": float(qty_match.group(2).replace(".", "").replace(",", ".")), "unit": qty_match.group(3).lower(), "raw": line})
                 except ValueError:
                     pass
-        if not entries:
-            # The report might have a valid but different tabular layout. Preserve it, but do not claim parsed rows.
-            warnings.append("Formato tabular não reconhecido automaticamente; conteúdo bruto preservado para revisão.")
         totals["entries"] = entries
         totals["entry_count"] = len(entries)
         totals["raw_line_count"] = len(lines)
-    else:
-        raise ValueError(f"Tipo de relatório desconhecido: {report_type}")
-
+        if not entries:
+            warnings.append("Formato tabular não reconhecido automaticamente; conteúdo bruto preservado para revisão.")
     totals["validation_warnings"] = warnings
     return totals, warnings
 
