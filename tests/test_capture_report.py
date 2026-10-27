@@ -205,6 +205,29 @@ Ticket Médio: 16,53
         self.assertEqual(report.id, 2)
         self.assertIn("24,99", raw)
 
+    def test_ranked_rows_have_clean_names_and_all_100_entries(self):
+        rows = []
+        for rank in range(1, 101):
+            rows.append(f"{rank}: PRODUTO {rank:03d} Total R$: 123,45 Quantidade: 2UN Preço Atual R$: 5,00 Preço Medio R$: 5,00")
+        raw = "Top 100 Valor Acumulada do Mês de Outubro Filial: MARCOPAO\\n" + " ".join(rows)
+        totals, warnings = parse_report_data("top_value", raw)
+        self.assertEqual(totals["entry_count"], 100)
+        self.assertEqual(totals["entries"][0]["name"], "PRODUTO 001")
+        self.assertEqual(totals["entries"][0]["value"], 123.45)
+        self.assertEqual(totals["entries"][0]["quantity"], 2)
+        self.assertEqual(totals["entries"][99]["name"], "PRODUTO 100")
+        self.assertFalse(any("Ranking incompleto" in warning for warning in warnings))
+
+    def test_group_report_extracts_name_and_average(self):
+        raw = "Vendas por grupo Acumulada do Mês de Outubro\\n1: PADARIA Total R$: 87739,20 Quantidade: 7600,325 Preço Médio Venda R$: 11,54 2: LANCHONETE Total R$: 37169,57 Quantidade: 4794,730 Preço Médio Venda R$: 7,75"
+        totals, warnings = parse_report_data("sales_by_group", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertEqual(totals["entries"][0]["name"], "PADARIA")
+        self.assertEqual(totals["entries"][0]["value"], 87739.20)
+        self.assertEqual(totals["entries"][0]["average"], 11.54)
+        self.assertEqual(totals["entries"][1]["name"], "LANCHONETE")
+        self.assertEqual(totals["entries"][1]["average"], 7.75)
+
     def test_group_title_is_recognized_even_when_body_is_a_separate_message(self):
         self.assertTrue(report_title_match("Vendas por grupoAcumulada do Mês de Outubro Filial: MARCOPAO", "sales_by_group"))
         self.assertTrue(report_title_match("Vendas de Produto Por Grupo Acumulada do Mês", "products_by_group"))
