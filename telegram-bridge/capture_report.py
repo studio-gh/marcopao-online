@@ -563,8 +563,9 @@ async def main():
             if mode == "daily_yesterday" and re.search(r"\\bvenda de hoje\\b", latest_text):
                 print(f"DAILY_DATE_MISMATCH_EXPECTED_YESTERDAY requested={requested_period}; report title indicates today. Database write skipped.")
                 return 22
-            # Card detail response is part of every daily capture. Pull it before persisting so
-            # the daily record and its review metadata are written together in Supabase.
+            # Create the daily artifact first, then request the card details and attach them
+            # before persisting the same report row to Supabase.
+            output = save_report(report, report_type, requested_period)
             card_report = await finish_card_prompt(client, entity)
             if card_report:
                 card_details = {
