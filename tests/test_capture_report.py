@@ -190,7 +190,11 @@ Ticket Médio: 16,53
         self.assertEqual(report.id, 2)
         self.assertIn("PAO FRANCES", raw)
         self.assertIn("PAO DE QUEIJO", raw)
+        self.assertIn("\n", raw)
         self.assertNotIn("Bem vindo", raw)
+        parsed, warnings = parse_report_data("top_value", raw)
+        self.assertGreaterEqual(parsed["entry_count"], 2)
+        self.assertEqual(parsed["entries"][0]["value"], 43261.02)
 
     def test_report_payload_skips_ticket_average_group_selector_prompt(self):
         messages = [
