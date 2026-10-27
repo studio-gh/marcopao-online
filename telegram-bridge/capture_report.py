@@ -452,6 +452,44 @@ async def main():
                 if not replies2:
                     return 7
                 replies.extend(replies2)
+                # If the bot shows a year/month selector rather than a report, complete the
+                # explicit historical date flow instead of saving a current-day result as yesterday.
+                prompt = norm(latest.message).lower()
+                visible = [label.strip().lower() for label in buttons(latest)]
+                if "ano atual" in prompt and "ano anterior" in prompt:
+                    latest, year_replies = await send_choice(client, entity, latest, "Ano Anterior", "select previous year for historical daily report")
+                    if not year_replies:
+                        return 18
+                    replies.extend(year_replies)
+                    latest = await latest_incoming(client, entity) or latest
+                    prompt = norm(latest.message).lower()
+                    visible = [label.strip().lower() for label in buttons(latest)]
+                if "selecione o mês" in prompt or ("mês" in prompt and visible):
+                    candidates = [label for label in buttons(latest) if "outubro" in label.lower()]
+                    if candidates:
+                        latest, month_replies = await send_choice(client, entity, latest, candidates[0], "select October for historical daily report")
+                        if not month_replies:
+                            return 19
+                        replies.extend(month_replies)
+                        latest = await latest_incoming(client, entity) or latest
+                        prompt = norm(latest.message).lower()
+                        visible = [label.strip().lower() for label in buttons(latest)]
+                # Do not proceed unless the result is an explicit daily report, not a stale prompt.
+                if not matches_report(latest.message, mode):
+                    print(f"HISTORICAL_DAILY_SELECTION_INCOMPLETE prompt={safe_preview(latest.message)}; refusing to persist an incorrectly dated report.")
+                    return 20
+                latest_text = norm(latest.message).lower()
+                explicit_dates = re.search(r"(?:data|referência|período)\\s*:?\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{2}/\\d{2}/\\d{4})", latest.message, re.I)
+                if explicit_dates:
+                    raw_date = explicit_dates.group(1)
+                    if "/" in raw_date:
+                        dd, mm, yyyy = raw_date.split("/")
+                        confirmed_date = f"{yyyy}-{mm}-{dd}"
+                    else:
+                        confirmed_date = raw_date
+                    if confirmed_date != requested_period:
+                        print(f"HISTORICAL_DAILY_DATE_MISMATCH expected={requested_period} found={confirmed_date}; not saving.")
+                        return 21
             elif prompt_mentions_day_choices and not visible_labels:
                 latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "request the previous day's sales from an explicit text prompt")
                 if not replies2:
