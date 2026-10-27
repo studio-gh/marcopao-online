@@ -80,6 +80,28 @@ async def send_choice(client, entity, current, choice, reason):
             print("BUTTONS: " + " | ".join(labels[:25]))
     return replies[-1], replies
 
+async def ensure_bellabyte_login(client, entity, current):
+    """Complete Bellabyte's application login whenever a workflow navigation step triggers it."""
+    state = norm(current.message).lower()
+    if "precisa se logar" not in state and "precisa fazer login" not in state:
+        return current
+    password = os.environ.get("BELLABYTE_PASSWORD", "").strip()
+    if not password:
+        print("BELLABYTE_PASSWORD_MISSING")
+        raise RuntimeError("Bellabyte application login is required but BELLABYTE_PASSWORD is empty.")
+    current, replies = await send_choice(
+        client, entity, current, password, "Bellabyte application login password"
+    )
+    if not replies:
+        raise RuntimeError("Bellabyte login prompt received no reply after password submission.")
+    latest = await latest_incoming(client, entity)
+    current = latest or current
+    state = norm(current.message).lower()
+    if "precisa se logar" in state or "precisa fazer login" in state:
+        print("BELLABYTE_LOGIN_NOT_ACCEPTED")
+        raise RuntimeError("Bellabyte did not accept the application login; verify the BELLABYTE_PASSWORD secret.")
+    return current
+
 def br_number(value):
     return float(value.replace(".", "").replace(",", "."))
 
@@ -285,6 +307,8 @@ async def recover_menu(client, entity, current):
             raise RuntimeError("No response after branch selection 1.")
         latest = await latest_incoming(client, entity)
         current = latest or branch_reply
+        current = await ensure_bellabyte_login(client, entity, current)
+        current = await latest_incoming(client, entity) or current
         text = norm(current.message)
 
     if not is_main_menu(text):
@@ -367,6 +391,8 @@ async def main():
         if not replies:
             return 6
         latest = replies[-1]
+        latest = await ensure_bellabyte_login(client, entity, latest)
+        latest = await latest_incoming(client, entity) or latest
         combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
 
         if mode == "daily_yesterday":
