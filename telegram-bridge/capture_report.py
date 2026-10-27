@@ -352,10 +352,20 @@ async def recover_menu(client, entity, current):
     return current
 
 async def finish_card_prompt(client, entity):
+    """Always request card details when the Monitorbot offers them; never skip card sales."""
     latest = await latest_incoming(client, entity)
     if latest and ("deseja visualizar os cartões" in norm(latest.message).lower()
                    or "deseja visualizar os cartoes" in norm(latest.message).lower()):
-        await send_choice(client, entity, latest, "Não", "decline optional card details")
+        latest, replies = await send_choice(
+            client, entity, latest, "Sim", "request card transaction details for complete sales totals"
+        )
+        if not replies:
+            raise RuntimeError("Monitorbot did not return the requested card details.")
+        latest = await latest_incoming(client, entity) or latest
+        if not is_report_body(latest.message) and not any(is_report_body(m.message) for m in replies):
+            print("CARD_DETAILS_RESPONSE_NOT_RECOGNIZED")
+        else:
+            print("CARD_DETAILS_CAPTURED: card detail prompt was answered with Sim.")
 
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
