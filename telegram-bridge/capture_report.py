@@ -283,10 +283,10 @@ async def find_historical_daily_report(client, entity, target_date, scan_limit=5
         # can be inferred from the report request only when its message timestamp is the target day.
         # Prefer explicit dates if the body contains one; otherwise use the Telegram message date
         # only when it is on the target calendar day, avoiding assumptions about stale reports.
-        explicit = re.search(r"(?:data|referência|período)\\s*:?\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{2}/\\d{2}/\\d{4})", body, re.I)
+        explicit = re.search(r"(?:data|referência|período)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})", body, re.I)
         if explicit:
             value = explicit.group(1)
-            if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value):
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
                 report_date = value
             else:
                 dd, mm, yyyy = value.split("/")
