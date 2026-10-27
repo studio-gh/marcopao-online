@@ -265,6 +265,29 @@ def save_report(message, report_type, requested_period, raw_text=None):
     print("REPORT_TEXT_REDACTED: raw report stored only in protected Supabase row.")
     return output
 
+REPORT_OPTIONS = {
+    "1": "sale_day",
+    "2": "monthly_sales",
+    "3": "top_value",
+    "4": "top_quantity",
+    "10": "ticket_average",
+    "12": "sales_by_group",
+    "13": "products_by_group",
+}
+REPORT_MENU_OPTIONS = tuple(REPORT_OPTIONS.keys())
+MONTHLY_TYPES = {"monthly_sales"}
+REPORT_MODE = {"daily_yesterday": "sale_day", "monthly_sales": "monthly_sales"}
+
+def report_type_for_option(option):
+    return REPORT_OPTIONS.get(str(option).strip())
+
+def monthly_period(date_value):
+    return date_value[:7]
+
+def stable_report_identity(report_type, branch, period_start, period_end):
+    identity = "|".join((str(report_type), norm(branch).upper(), str(period_start), str(period_end)))
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
 def is_main_menu(text):
     low = norm(text).lower()
     return "venda do dia" in low and "venda acumulada mês" in low and "top 100" in low
