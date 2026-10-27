@@ -55,6 +55,19 @@
 .day-kpi strong{display:block;font-size:23px;letter-spacing:-.04em;margin:9px 0 5px}
 .day-kpi small{font-size:11px;color:var(--muted);line-height:1.4;display:block}
 .day-empty{border:1px dashed #cbd3c8;background:#fafbf7;padding:18px;border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6}
+.card-detail-panel{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:16px;background:#fbfcf7}
+.card-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.card-detail-head h3{margin:0 0 4px;font-size:15px}
+.card-detail-head p,.card-detail-note{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+.card-breakdown-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card-breakdown-col{min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+.card-breakdown-title{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:12px;font-weight:750}
+.card-breakdown-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #edf0e9;font-size:11px}
+.card-breakdown-row:last-child{border-bottom:0}
+.card-breakdown-row span{color:var(--muted);overflow-wrap:anywhere}
+.card-breakdown-row strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+.card-detail-note{margin-top:10px}
+@media(max-width:640px){.card-breakdown-grid{grid-template-columns:1fr}.card-detail-head{flex-direction:column}}
 @media(max-width:800px){.day-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:460px){.day-grid{grid-template-columns:1fr}}
 
@@ -124,6 +137,17 @@
       <div class="day-kpi"><label>Cupons do dia anterior</label><strong id="dailyPrevCoupons">—</strong><small>Conforme relatório anterior</small></div>
       <div class="day-kpi"><label>Ticket médio de hoje</label><strong id="dailyTodayTicket">—</strong><small>Conforme relatório do dia</small></div>
       <div class="day-kpi"><label>Ticket médio anterior</label><strong id="dailyPrevTicket">—</strong><small>Conforme relatório anterior</small></div>
+    </div>
+    <div class="card-detail-panel" id="dailyCardDetails" style="display:none">
+      <div class="card-detail-head">
+        <div><h3>Detalhamento de cartões</h3><p id="dailyCardDetailsCaption">Resposta complementar do Monitorbot.</p></div>
+        <span class="tag">CAPTURADO DO MONITORBOT</span>
+      </div>
+      <div class="card-breakdown-grid">
+        <div class="card-breakdown-col"><div class="card-breakdown-title"><span>Por bandeira</span><strong id="cardBrandTotal">—</strong></div><div id="cardBrandRows"></div></div>
+        <div class="card-breakdown-col"><div class="card-breakdown-title"><span>Por rede</span><strong id="cardNetworkTotal">—</strong></div><div id="cardNetworkRows"></div></div>
+      </div>
+      <p class="card-detail-note">Este relatório complementar não é somado novamente ao faturamento diário, para evitar dupla contagem com POS/TEF. Dados aguardando revisão.</p>
     </div>
   </section>
 
@@ -342,6 +366,40 @@ function parseDayMetrics(text){
   branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
  };
 }
+function parseCardBreakdown(raw, label){
+ const lines=String(raw||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+ const start=lines.findIndex(line=>line.toLocaleLowerCase('pt-BR')===label.toLocaleLowerCase('pt-BR'));
+ if(start<0)return {rows:[],total:null};
+ const rows=[]; let total=null;
+ for(let i=start+1;i<lines.length;i++){
+  const line=lines[i];
+  const totalMatch=line.match(/^Total\s*:\s*R\$\s*([\d.]+,\d{2})$/i);
+  if(totalMatch){total=Number(totalMatch[1].replace(/\./g,'').replace(',','.'));break;}
+  const match=line.match(/^(.+?)\s*:\s*R\$\s*([\d.]+,\d{2})$/i);
+  if(match)rows.push({name:match[1].trim(),value:Number(match[2].replace(/\./g,'').replace(',','.'))});
+ }
+ return {rows,total};
+}
+function escapeCardText(value){
+ return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function renderCardDetails(today,prev){
+ const panel=document.getElementById('dailyCardDetails');
+ const source=[today,prev].filter(Boolean).find(row=>row.cardDetails&&row.cardDetails.raw_text);
+ if(!source){panel.style.display='none';return;}
+ const raw=source.cardDetails.raw_text;
+ const brands=parseCardBreakdown(raw,'Nome Bandeira');
+ const networks=parseCardBreakdown(raw,'Nome Rede');
+ const renderRows=rows=>rows.length
+  ?rows.map(item=>'<div class="card-breakdown-row"><span>'+escapeCardText(item.name)+'</span><strong>'+money(item.value)+'</strong></div>').join('')
+  :'<div class="day-empty">Sem linhas identificadas.</div>';
+ setText('dailyCardDetailsCaption','Relatório complementar de '+source.date+' · resposta do Monitorbot · revisão pendente');
+ setText('cardBrandTotal',brands.total===null?'—':money(brands.total));
+ setText('cardNetworkTotal',networks.total===null?'—':money(networks.total));
+ document.getElementById('cardBrandRows').innerHTML=renderRows(brands.rows);
+ document.getElementById('cardNetworkRows').innerHTML=renderRows(networks.rows);
+ panel.style.display='block';
+}
 function renderDailyComparison(){
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
@@ -366,6 +424,7 @@ function renderDailyComparison(){
   const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':period==='month'?' no mês atual':'';
   setText('dailyCompareSubtitle','Marcopão · comparação com o último relatório diário disponível.');
   empty.textContent='Nenhum relatório diário encontrado'+suffix+'. A visão mensal não será usada como substituta; são necessários dados diários reais.';
+  renderCardDetails(null,null);
   return;
  }
  const dateObj=new Date(today.date+'T00:00:00Z');
@@ -395,6 +454,7 @@ function renderDailyComparison(){
  setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
  setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
+ renderCardDetails(today,prev);
 }
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
@@ -487,6 +547,7 @@ window.setSupabaseDailyReports = function(rows){
     coupons:t.cupons==null?null:Number(t.cupons),
     ticket:t.ticket_medio==null?null:Number(t.ticket_medio)
    },
+   cardDetails:t.card_details||null,
    status:row.status||'needs_review',
    source:'supabase',
    importedAt:row.imported_at||''
