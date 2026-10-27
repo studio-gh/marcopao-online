@@ -519,51 +519,63 @@ function applyFilters(){
  const dailyMode=selectedType==="sale-day";
  const monthlyMode=selectedType==="sale-month";
  const other=!dailyMode && !monthlyMode && selectedType!=="sales-group";
+
  document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
  document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other || dailyMode));
- document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
- document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
+ document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other);
+ document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || dailyMode || monthlyMode);
  document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
- document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other || dailyMode);
+ document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other || dailyMode || monthlyMode);
  document.getElementById('dailyCompareView').classList.toggle('hidden-by-filter',!dailyMode);
  document.getElementById('otherReportView').classList.toggle('active',other);
+
  if(dailyMode){
-   renderDailyComparison();
-   const newest=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
-   setText('filterStatus',newest?(newest.source==='supabase'?'Comparação diária usando relatórios do Supabase. Último registro: '+(newest.status||'status não informado')+'.':'Comparação diária calculada a partir de relatórios importados neste navegador.'):'Nenhum relatório diário disponível no Supabase. Execute a coleta diária; o comparativo só aparece com dois dias consecutivos.');
- } else if(other){
-   setText('otherReportTitle',reportNames[selectedType]);
-   setText('otherReportDescription','Relatório do menu Monitorbot. Conteúdo textual só aparece quando importado manualmente ou pela coleta automatizada.');
-   const hasText=!!(report&&report.text);
-   document.getElementById('otherReportEmpty').style.display=hasText?'none':'block';
-   const raw=document.getElementById('otherReportRaw');
-   raw.style.display=hasText?'block':'none';
-   if(hasText){
-     const lines=report.text.split(/\\r?\\n/);
-     const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
-     raw.textContent=filtered.length?filtered.join('\\n'):'Nenhuma linha corresponde à busca.';
-   }
-   setText('filterStatus',hasText?reportNames[selectedType]+' · busca aplicada ao texto bruto.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
- } else if(selectedType==='sale-month' && window.monthlyReportRow){
-   document.querySelector('.hero').classList.remove('hidden-by-filter');
-   document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
-   document.querySelector('.showcase-grid').classList.remove('hidden-by-filter');
-   document.querySelector('.showcase-grid .panel:nth-child(2)').classList.add('hidden-by-filter');
-   document.querySelector('.showcase-grid .panel:first-child').classList.add('hidden-by-filter');
-   document.querySelector('.group-detail-panel').classList.add('hidden-by-filter');
-   document.getElementById('dailyCompareView').classList.add('hidden-by-filter');
-   showMonthlyReport(window.monthlyReportRow);
- } else {
-   document.querySelector('.hero').classList.remove('hidden-by-filter');
-   document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
-   document.querySelector('.showcase-grid').classList.remove('hidden-by-filter');
-   document.querySelector('.showcase-grid .panel:nth-child(2)').classList.remove('hidden-by-filter');
-   document.querySelector('.showcase-grid .panel:first-child').classList.remove('hidden-by-filter');
-   document.querySelector('.group-detail-panel').classList.remove('hidden-by-filter');
-   if(selectedType==='sale-month' && !report?.text){setText('heroTotal','Relatório mensal ausente');setText('heroTicket','Não disponível');['coupons','cash','pix','tef','donutTotal','legendTef','legendCash','legendPix','ticketLabel','cancelCoupons','cancelItems'].forEach(id=>setText(id,'Não disponível'));['cashShare','pixShare','tefShare'].forEach(id=>setText(id,'Aguardando relatório mensal'));setText('reportPeriod','RELATÓRIO MENSAL NÃO IMPORTADO');setText('dateCheck','Relatório mensal ausente');setText('paymentCheck','Sem dados');setText('ticketCheck','Sem dados');setText('filterStatus','O Supabase ainda não contém relatório acumulado do mês. Nenhum valor de amostra será apresentado como atual. Importe o relatório 2 do Monitorbot para preencher esta visão.');}else{setText('filterStatus',selectedType==='sales-group'?'Relatório 12 ainda sem importação validada.':selectedType==='sale-month'?'Relatório mensal importado nesta sessão.':'Selecione o relatório diário para ver a comparação com o dia anterior.');}
+  renderDailyComparison();
+  const newest=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+  setText('filterStatus',newest?(newest.source==='supabase'?'Comparação diária usando relatórios do Supabase. Último registro: '+(newest.status||'status não informado')+'.':'Comparação diária calculada a partir de relatórios importados neste navegador.'):'Nenhum relatório diário disponível no Supabase. Execute a coleta diária; o comparativo só aparece com dois dias consecutivos.');
+  return;
  }
-}
-const modal=document.getElementById('modal');
+ if(monthlyMode){
+  if(window.monthlyReportRow){showMonthlyReport(window.monthlyReportRow);return;}
+  const t=window.monthlySnapshot||null;
+  if(t){
+   showMonthlySnapshot(t);
+   return;
+  }
+  setText('heroTotal','Relatório mensal indisponível');
+  setText('heroTicket','Não disponível');
+  ['coupons','cash','pix','tef','donutTotal','legendTef','legendCash','legendPix','ticketLabel','cancelCoupons','cancelItems'].forEach(id=>setText(id,'Não disponível'));
+  ['cashShare','pixShare','tefShare'].forEach(id=>setText(id,'Aguardando relatório mensal'));
+  setText('reportPeriod','RELATÓRIO MENSAL NÃO CARREGADO');
+  setText('dateCheck','Relatório mensal ausente');
+  setText('paymentCheck','Sem dados');
+  setText('ticketCheck','Sem dados');
+  setText('filterStatus','O banco ainda não entregou o relatório mensal ao painel. O total confirmado manualmente continua registrado para consulta, mas a leitura automática precisa ser corrigida.');
+  return;
+ }
+ if(other){
+  setText('otherReportTitle',reportNames[selectedType]);
+  setText('otherReportDescription','Relatório do menu Monitorbot. Conteúdo textual só aparece quando importado manualmente ou pela coleta automatizada.');
+  const hasText=!!(report&&report.text);
+  document.getElementById('otherReportEmpty').style.display=hasText?'none':'block';
+  const raw=document.getElementById('otherReportRaw');
+  raw.style.display=hasText?'block':'none';
+  if(hasText){
+   const lines=report.text.split(/\r?\n/);
+   const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
+   raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
+  }
+  setText('filterStatus',hasText?reportNames[selectedType]+' · busca aplicada ao texto bruto.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
+  return;
+ }
+ document.querySelector('.hero').classList.remove('hidden-by-filter');
+ document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
+ document.querySelector('.showcase-grid').classList.remove('hidden-by-filter');
+ document.querySelector('.showcase-grid .panel:nth-child(2)').classList.remove('hidden-by-filter');
+ document.querySelector('.showcase-grid .panel:first-child').classList.remove('hidden-by-filter');
+ document.querySelector('.group-detail-panel').classList.remove('hidden-by-filter');
+ setText('filterStatus',selectedType==='sales-group'?'Relatório 12 ainda sem importação validada.':'Selecione o relatório diário para ver a comparação com o dia anterior.');
+}const modal=document.getElementById('modal');
 document.getElementById('importBtn').onclick=()=>{
  setText('modalTitle','Atualizar · '+reportNames[selectedType]);
  document.getElementById('reportText').value='';
