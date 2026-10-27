@@ -373,14 +373,24 @@ def parse_report_data(report_type, raw):
             stock_match = re.search(r"Estoque\s*:?\s*(-?[\d.]+(?:,\d+)?)(?:\s*(kg|un(?:idade)?s?))?", block_text, re.IGNORECASE)
             if stock_match:
                 try:
-                    entry["stock"] = float(stock_match.group(1).replace(".", "").replace(",", "."))
+                    stock_value = float(stock_match.group(1).replace(".", "").replace(",", "."))
+                    stock_unit = (stock_match.group(2) or "").lower()
+                    if stock_unit.startswith("un"):
+                        stock_unit = "un"
+                    if stock_value < 0:
+                        warnings.append(f"Estoque negativo para {clean_name}: conferir o dado de origem antes de uso operacional.")
+                        entry["stock_validation"] = "suspect_negative"
+                    elif abs(stock_value) > 100000:
+                        warnings.append(f"Estoque fora da faixa plausível para {clean_name}: conferir unidade e escala.")
+                        entry["stock_validation"] = "suspect_magnitude"
+                    else:
+                        entry["stock_validation"] = "parsed_unverified"
+                    # Keep the source value for audit, but expose validation separately.
+                    entry["stock"] = stock_value
+                    if stock_unit:
+                        entry["stock_unit"] = stock_unit
                 except ValueError:
-                    pass
-                stock_unit = (stock_match.group(2) or "").lower()
-                if stock_unit.startswith("un"):
-                    entry["stock_unit"] = "un"
-                elif stock_unit:
-                    entry["stock_unit"] = stock_unit
+                    warnings.append(f"Estoque não interpretável para {clean_name}.")
             cost_match = re.search(r"Custo\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})", block_text, re.IGNORECASE)
             if cost_match:
                 try:
@@ -423,6 +433,10 @@ def parse_report_data(report_type, raw):
             warnings.append(f"Ranking incompleto: {len(entries)} linhas reconhecidas, esperado até 100. Conferir captura e quebras de mensagem.")
         elif report_type == "sales_by_group" and len(entries) < 2:
             warnings.append("Poucos grupos reconhecidos; conferir separação das linhas do relatório.")
+        if report_type == "products_by_group":
+            suspicious = [e for e in entries if e.get("stock_validation", "").startswith("suspect_")]
+            if suspicious:
+                warnings.append(f"{len(suspicious)} produto(s) com estoque suspeito; saldo ocultado na visão operacional até conferência.")
     totals["validation_warnings"] = warnings
     return totals, warnings
 
