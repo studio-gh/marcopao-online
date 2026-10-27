@@ -706,9 +706,15 @@ window.setSupabaseReports = function(rows){
  if(trustBanner){trustBanner.dataset.level=globalTrusted?'ok':'blocked';trustBanner.innerHTML=globalTrusted?'<span class="trust-icon">✓</span><div><strong>Dados validados</strong><span>Os relatórios visíveis passaram pelo status de validação do sistema.</span></div>':'<span class="trust-icon">!</span><div><strong>Dados aguardando validação</strong><span>Há importações pendentes de conferência. Os indicadores são exploratórios e não devem orientar compras, produção ou fechamento financeiro.</span></div>';}
  window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
+ window.pendingStructuredReports={};
  for(const row of list){
   if(!types[row.report_type])continue;
   const key=types[row.report_type];
+  if(row.status!=='validated'){
+   const previous=window.pendingStructuredReports[key];
+   if(!previous||(row.imported_at||'')>(previous.importedAt||''))window.pendingStructuredReports[key]={status:row.status||'needs_review',importedAt:row.imported_at||'',periodStart:row.period_start||'',periodEnd:row.period_end||'',branch:row.branch_name_raw||'',warnings:Array.isArray(row.totals?.validation_warnings)?row.totals.validation_warnings:[]};
+   continue;
+  }
   // The public summary view intentionally contains no raw Telegram text.
   const entries=Array.isArray(row.totals?.entries)?row.totals.entries:[];
   const formatted=entries.map(item=>{
