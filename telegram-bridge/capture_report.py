@@ -535,9 +535,10 @@ def find_report_payload(replies, report_type):
     fragments = []
     first_message = replies[start_index]
     for message in replies[start_index:]:
-        text = norm(message.message or "")
-        low = text.lower()
-        if not text:
+        raw_text = (message.message or "").strip()
+        normalized = norm(raw_text)
+        low = normalized.lower()
+        if not normalized:
             continue
         if any(prompt in low for prompt in (
             "deseja visualizar os cartões", "deseja visualizar os cartoes",
@@ -545,8 +546,9 @@ def find_report_payload(replies, report_type):
             "qual filial deseja se conectar", "digite qual filial deseja se conectar",
         )):
             break
-        if report_title_match(text, report_type) or report_message_has_data(text) or matches_report_type(text, report_type):
-            fragments.append(text)
+        if report_title_match(normalized, report_type) or report_message_has_data(raw_text) or matches_report_type(normalized, report_type):
+            # Preserve each message's internal line breaks; the block parser depends on them.
+            fragments.append(raw_text)
             continue
         if fragments:
             break
