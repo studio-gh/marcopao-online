@@ -1,10 +1,10 @@
 name: Marcopão report collector
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
     inputs:
       report_mode:
         description: "Report to collect"
