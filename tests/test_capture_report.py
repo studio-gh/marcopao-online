@@ -7,6 +7,8 @@ SPEC = importlib.util.spec_from_file_location("capture_report", ROOT / "telegram
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 parse_totals = MODULE.parse_totals
+matches_report = MODULE.matches_report
+
 
 
 class ParseTotalsTests(unittest.TestCase):
@@ -33,6 +35,29 @@ Ticket Médio: 20,00
         self.assertEqual(totals["cupons"], 10)
         self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
         self.assertEqual(warnings, [])
+
+
+    def test_monthly_report_is_not_matched_as_daily(self):
+        monthly = """Venda Acumulada do Mês de Outubro
+Total de vendas nos Pdvs
+Dinheiro: R$ 100,00
+TEF: R$ 100,00
+Total: R$ 200,00
+Quantidades de Cupons: 10
+"""
+        self.assertTrue(matches_report(monthly, "monthly_october"))
+        self.assertFalse(matches_report(monthly, "daily_yesterday"))
+
+    def test_daily_report_is_recognized(self):
+        daily = """Venda do Dia
+Total de vendas nos Pdvs
+Dinheiro: R$ 100,00
+TEF: R$ 60,00
+Total: R$ 160,00
+Quantidades de Cupons: 8
+"""
+        self.assertTrue(matches_report(daily, "daily_yesterday"))
+        self.assertFalse(matches_report("1: Venda do Dia. 2: Venda Acumulada Mês.", "daily_yesterday"))
 
     def test_missing_total_is_flagged(self):
         totals, warnings = parse_totals("Venda do Dia\\nQuantidades de Cupons: 10")
