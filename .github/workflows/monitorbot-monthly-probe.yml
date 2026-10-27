@@ -1,6 +1,9 @@
 name: Marcopão report collector
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       report_mode:
@@ -42,6 +45,9 @@ jobs:
       - name: Test parser with synthetic report data
         run: python -m unittest discover -s tests -v
       - name: Collect report and persist it with review status
+        # Code pushes validate only. Live Telegram collection requires an intentional [collect-report] commit,
+        # manual workflow dispatch, or the daily schedule.
+        if: github.event_name != 'push' || contains(github.event.head_commit.message, '[collect-report]')
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
