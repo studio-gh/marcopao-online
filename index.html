@@ -720,7 +720,8 @@ window.setSupabaseReports = function(rows){
  }));
  // Top 100 by value is the direct source for the production/revenue Top 10; use report 13 only as fallback.
  const productRankRow=valueRankRow||productGroupRow;
- productSales=productRankRow?.totals?.entries||[];
+ // Prefer report 13 for product/group operational detail; report 3 is the revenue ranking fallback.
+ productSales=productGroupRow?.totals?.entries?.length ? productGroupRow.totals.entries : (productRankRow?.totals?.entries||[]);
  renderGroupBars();
  renderProductionRows(productSales,productRankRow);
  setText('monthlyOverviewTotal',window.monthlyReportRow?.totals?.total!=null?money(Number(window.monthlyReportRow.totals.total)):'Relatório mensal não importado');
