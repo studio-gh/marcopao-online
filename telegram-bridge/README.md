@@ -1,50 +1,51 @@
 # Telegram bridge (Marcopão Online)
 
-This bridge is the proposed local connector between the authorized Telegram account and the Marcopão Online database. Bellabyte has no official API, so this must be tested against the bot's actual conversation flow before enabling unattended imports.
+The scheduled collector connects to the authorized Telegram session, navigates the actual Bellabyte menu, and writes a report's raw text plus parsed totals into the protected Supabase `report_imports` table with status `needs_review`. It never marks imported numbers as validated automatically.
 
-## Why it runs locally first
+## Collector workflow
 
-- Telegram login codes and the authorized session stay on the bakery owner's Mac.
-- No Telegram session file, API hash, password, Supabase secret, or service-role key belongs in GitHub.
-- The first version must run in **read-only / export-only mode** and save raw replies with timestamps for review.
-- Do not treat an in-progress monthly report as a final close. Store the query time and period.
-- Do not write parsed data into the production tables until totals and duplicate handling are tested.
+- GitHub Actions workflow: [Marcopão report collector](https://github.com/studio-gh/marcopao-online/actions/workflows/monitorbot-monthly-probe.yml)
+- Manual modes: `daily_yesterday` and `monthly_october`.
+- Scheduled run: daily at 03:10 UTC, which is 00:10 in `America/Sao_Paulo`. It requests the previous day's report.
+- The bot's menu is stateful. If the conversation is in an unexpected state, the collector uses the documented `0` reset, reselects the branch, and verifies the main menu before continuing.
+- The report and credentials are not printed in full in public GitHub Actions logs.
+- The collector is idempotent by `content_sha256`; duplicate raw reports are ignored by PostgREST upsert.
+- The collector stops before opening Telegram if the Supabase service-role secret is missing.
 
-## Proposed phases
+## Required GitHub Actions secrets
 
-1. **Connect and observe:** sign in with the user's own Telegram account and read the existing conversation with `@MonitorMarcopaoBot`.
-2. **Guided query test:** request one known report (monthly sales, October 2026) and capture the exact message sequence, including reply-keyboard interactions.
-3. **Export-only parser:** store the raw response and a SHA-256 fingerprint locally; parse only known report formats.
-4. **Validation:** compare parsed values to the raw message and record warnings rather than silently reconciling differences.
-5. **Database import:** only after explicit approval, send validated data to a protected Supabase endpoint using a dedicated, least-privilege credential.
-6. **Scheduled operation:** add scheduling only after the interactive bot flow is reliable and the account/session behavior is understood.
+Set these in **Settings → Secrets and variables → Actions**:
 
-## Prerequisites for the local proof of concept
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_SESSION_STRING`
+- `BELLABYTE_PASSWORD`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-- Telegram Desktop installed and signed in on the Mac, or access to the Telegram account for a one-time login.
-- Telegram API application credentials (`api_id` and `api_hash`) created by the account owner at https://my.telegram.org. These are used by the Telegram client library, not supplied by Bellabyte.
-- Python 3.11 or later.
-- The owner must approve the first interactive run and keep the session file private.
+The Supabase secret must be the project's **service_role** JWT key used only by the workflow. Never commit it, put it in a client-side page, or paste it into chat. The repository is public, so do not log raw sales reports or upload raw reports as public Actions artifacts.
 
-## Security rules
+## Data and validation
 
-- Never commit `.session`, `.env`, Telegram login codes, API hashes, bot tokens, Supabase service-role keys, or exported private reports.
-- Add local secrets and session files to `.gitignore`.
-- Do not bypass Telegram login protections or attempt to access Bellabyte's server.
-- If the bot's interaction cannot be automated reliably, use a user-approved export/import flow instead of pretending the bot is connected.
+The collector stores:
+- Source bot and branch
+- Report type and requested period
+- Message ID and timestamp
+- Raw text and SHA-256 content hash
+- Parsed totals and reconciliation warnings
+- `status = needs_review`
 
-## Current status
+This is a capture/import stage, not approval. Review report semantics, month-to-date vs. closed-month labeling, cancellation values, and totals before promoting anything to `validated`.
 
-- `monitorbot-readonly.yml` manually verifies that the Telegram session can access `@MonitorMarcopaoBot`; it does not send messages or fetch reports.
-- `monitorbot-inspect.yml` manually inspects a small sample of the existing conversation and button labels. It does not send messages, print full report bodies, or write to Supabase.
-- Next step: run the inspection workflow and use its output to map the bot's actual menu sequence before implementing a controlled request for one monthly report.
-- No report has yet been automatically requested or imported by these workflows.
+## Dashboard status
 
-## Run the read-only inspection
+The GitHub Pages dashboard has a dedicated daily-comparison layout and no longer shows its former hard-coded example revenue values. The daily view needs two real consecutive daily reports to calculate the difference and percentage. The website is still static and does **not yet read Supabase live**. Do not add anonymous read policies to financial tables: before the live dashboard connection is enabled, add an authenticated and allowlisted read path.
 
-1. Open the repository's **Actions** tab.
-2. Select **Inspect Monitorbot conversation (read-only)**.
-3. Click **Run workflow** and confirm the `main` branch.
-4. Open the completed run, then the `inspect-telegram` job, and share the visible log output. The script intentionally truncates message previews to reduce exposure of sales data.
+## Next steps
 
-Do not paste Telegram session strings, API hashes, login codes, or other secrets into chat or logs.
+1. Add `SUPABASE_SERVICE_ROLE_KEY` to GitHub Actions secrets.
+2. Run the collector manually once with `daily_yesterday` to collect yesterday's report.
+3. Verify the resulting `report_imports` row remains `needs_review`.
+4. Wire the dashboard to Supabase through an authenticated read path.
+5. Once two consecutive daily reports exist, verify the day-over-day dashboard with the real data.
+6. Only then scale the historical backfill (January 2023 onward). Never invent unavailable periods.
+
