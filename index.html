@@ -46,6 +46,18 @@
 @media(max-width:800px){.showcase-grid{grid-template-columns:1fr}.group-top-products{grid-template-columns:1fr}.product-row{gap:8px}.product-row>strong{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 
+
+.day-compare{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:0 0 18px}
+.day-compare h2{margin:0 0 6px;font-size:18px}.day-compare .sub{color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:16px}
+.day-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.day-kpi{padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.day-kpi label{font-size:11px;color:var(--muted);display:block}
+.day-kpi strong{display:block;font-size:23px;letter-spacing:-.04em;margin:9px 0 5px}
+.day-kpi small{font-size:11px;color:var(--muted);line-height:1.4;display:block}
+.day-empty{border:1px dashed #cbd3c8;background:#fafbf7;padding:18px;border-radius:12px;color:var(--muted);font-size:13px;line-height:1.6}
+@media(max-width:800px){.day-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.day-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -95,6 +107,22 @@
     <div class="hero-side">
       <div><div class="eyebrow">Ticket médio</div><div class="big" id="heroTicket">R$ 16,59</div><p>Valor médio por cupom registrado no relatório.</p></div>
       <div class="side-foot" id="reportPeriod">PERÍODO: OUTUBRO · ATUALIZADO ÀS 15:50</div>
+    </div>
+  </section>
+
+  <section class="day-compare hidden-by-filter" id="dailyCompareView" aria-live="polite">
+    <h2>Fechamento diário · comparação com o dia anterior</h2>
+    <div class="sub" id="dailyCompareSubtitle">A visão diária aparecerá quando os relatórios de dois dias consecutivos estiverem importados e com data identificada.</div>
+    <div id="dailyCompareEmpty" class="day-empty">Ainda não há dois relatórios diários validados no dashboard. Não vamos substituir dados reais por números de exemplo.</div>
+    <div class="day-grid" id="dailyCompareGrid" style="display:none">
+      <div class="day-kpi"><label>Venda do dia</label><strong id="dailyTodayTotal">—</strong><small id="dailyTodayDate">Data não identificada</small></div>
+      <div class="day-kpi"><label>Dia anterior</label><strong id="dailyPrevTotal">—</strong><small id="dailyPrevDate">Data não identificada</small></div>
+      <div class="day-kpi"><label>Variação absoluta</label><strong id="dailyDelta">—</strong><small id="dailyDeltaCaption">Comparação ainda indisponível</small></div>
+      <div class="day-kpi"><label>Variação percentual</label><strong id="dailyDeltaPct">—</strong><small>Calculada sobre o faturamento do dia anterior</small></div>
+      <div class="day-kpi"><label>Cupons de hoje</label><strong id="dailyTodayCoupons">—</strong><small>Conforme relatório do dia</small></div>
+      <div class="day-kpi"><label>Cupons do dia anterior</label><strong id="dailyPrevCoupons">—</strong><small>Conforme relatório anterior</small></div>
+      <div class="day-kpi"><label>Ticket médio de hoje</label><strong id="dailyTodayTicket">—</strong><small>Conforme relatório do dia</small></div>
+      <div class="day-kpi"><label>Ticket médio anterior</label><strong id="dailyPrevTicket">—</strong><small>Conforme relatório anterior</small></div>
     </div>
   </section>
 
@@ -177,7 +205,7 @@
 </div></div>
 <div class="toast" id="toast"></div>
 <script>
-const base={total:201624.25,cash:42613.28,pix:1290.22,tef:151866.53,posCredit:2659.30,posDebit:2514.16,ticketMethod:680.76,coupons:12153,ticket:16.59,cancelCoupons:0,cancelItems:182101.86,branch:"MARCOPAO LANCHONETE E PANIFICACAO LTDA",date:"Outubro de 2026 · resumo às 15:50 de 26/10",imported:"26/10/2026 · 15:50"};
+const base={total:0,cash:0,pix:0,tef:0,posCredit:0,posDebit:0,ticketMethod:0,coupons:0,ticket:0,cancelCoupons:0,cancelItems:0,branch:"MARCOPAO LANCHONETE E PANIFICACAO LTDA",date:"",imported:""};
 const reportNames={
  "sale-day":"Venda do dia","sale-month":"Venda acumulada do mês","top-value":"Top 100 por valor","top-quantity":"Top 100 por quantidade",
  "payable":"Contas a pagar","receivable":"Contas a receber","group-purchases":"Compras do grupo","purchases":"Compras",
@@ -186,14 +214,16 @@ const reportNames={
 };
 let data={...base};
 let importedReports={
- "sale-day":{text:"Venda de Hoje Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nDinheiro: R$ 521,95\nPIX: R$ 31,20\nTEF: R$ 1.429,03\nTotal: R$ 1.982,18\nQuantidades de Cupons: 168\nTicket Médio: 11,80\nQtd de Cupons cancelados: 0\nVlr Total Item Canc.: R$ 8,44",date:base.date,branch:base.branch},
- "sale-month":{text:"Venda Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nDinheiro: R$ 42.613,28\nPIX: R$ 1.290,22\nPOS Crédito: R$ 2.659,30\nPOS Débito: R$ 2.514,16\nTEF: R$ 151.866,53\nTICKET: R$ 680,76\nTotal: R$ 201.624,25\nQuantidades de Cupons: 12.153\nTicket Médio: 16,59\nQtd de Cupons cancelados: 0\nQtd Venda não Concluida: 178\nVenda não Concluida: R$ 3.407,53\nVlr Total Item Canc.: R$ 182.101,86\nVenda Total do dia: R$ 201.624,25",date:"Outubro de 2026 · 26/10 às 15:50",branch:base.branch},
- "top-value":{text:"Top 100 por valor · amostra enviada pelo usuário. Produtos e totais precisam de validação integral antes de análises automatizadas.",date:"Período conforme relatório original",branch:base.branch},
- "top-quantity":{text:"Top 100 por quantidade · amostra enviada pelo usuário. Unidades de medida variam entre UN e KG.",date:"Período conforme relatório original",branch:base.branch},
- "ticket":{text:"Ticket Médio / Preço de Vendas por Quantidade · filtro Todos · período Outubro. Arquivo de produtos enviado pelo usuário; campos de preço e quantidade disponíveis para consulta.",date:"Outubro de 2026",branch:base.branch},
- "sales-group":{text:"Relatório 12 · Vendas por grupo · acumulada do mês de Outubro · Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA\nPADARIA · Total R$: 84.880,92 · Quantidade: 7.328,030 · Preço médio: R$ 11,58\nLANCHONETE · Total R$: 35.765,24 · Quantidade: 4.623,956 · Preço médio: R$ 7,73\nBEBIDAS · Total R$: 20.519,72 · Quantidade: 3.123 · Preço médio: R$ 6,57\nCONFEITARIA · Total R$: 20.166,91 · Quantidade: 2.172,910 · Preço médio: R$ 9,28\nFRANGOS · Total R$: 12.488,00 · Quantidade: 266 · Preço médio: R$ 46,95\nLATICINIOS · Total R$: 11.413,74 · Quantidade: 268,670 · Preço médio: R$ 42,48\nFRIOS PARA FATIAR · Total R$: 8.918,69 · Quantidade: 184,420 · Preço médio: R$ 48,36\nBOMBONIERE · Total R$: 3.022,85 · Quantidade: 940 · Preço médio: R$ 3,22\nMERCEARIA · Total R$: 2.275,12 · Quantidade: 290 · Preço médio: R$ 7,85\nLEITE · Total R$: 1.182,70 · Quantidade: 155 · Preço médio: R$ 7,63\nSALGADOS FRITOS · Total R$: 1.173,72 · Quantidade: 998 · Preço médio: R$ 1,18\nGERAL · Total R$: 514,37 · Quantidade: 4.389 · Preço médio: R$ 0,12\nIFOOD · Total R$: 25,90 · Quantidade: 3 · Preço médio: R$ 8,63\nCONGELADOS · Total R$: 18,24 · Quantidade: 0,380 · Preço médio: R$ 48,00",date:"Outubro de 2026 · Relatório 12",branch:base.branch},
- "products-group":{text:"Relatório 13 · Venda de produto por grupo · grupo Todos. Total informado no fechamento do relatório: R$ 181.343,07. Top 10 por faturamento, excluindo embalagens: Pão francês R$ 41.920,81; Pão de queijo R$ 10.048,36; Frango assado R$ 8.372,00; Queijo prato R$ 4.889,77; Muçarela R$ 4.333,10; Frango assado c/ batatas R$ 4.116,00; Presunto Sadia R$ 4.091,53; Combo pão de queijo + Guaravita R$ 3.542,00; Mortadela defumada Ouro Perdigão R$ 3.482,87; Salgados unidade R$ 2.988,00. Sacolas excluídas da lista de produção.",date:"Período conforme relatório original",branch:base.branch}
+ "sale-day":{text:"",date:"",branch:base.branch},
+ "sale-month":{text:"",date:"",branch:base.branch},
+ "top-value":{text:"",date:"",branch:base.branch},
+ "top-quantity":{text:"",date:"",branch:base.branch},
+ "ticket":{text:"",date:"",branch:base.branch},
+ "sales-group":{text:"",date:"",branch:base.branch},
+ "products-group":{text:"",date:"",branch:base.branch}
 };
+let dailyReports = [];
+try { dailyReports = JSON.parse(localStorage.getItem("marcopao.dailyReports") || "[]"); } catch (_) { dailyReports = []; }
 let selectedType="sale-month";
 const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n||0);
 const num=n=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n||0);
@@ -274,38 +304,93 @@ function parseReport(text,date){
  d.date=date.trim();d.imported=new Date().toLocaleDateString('pt-BR');
  return d;
 }
+function reportDay(text, fallback){
+ const iso=(text.match(/(?:Data|Referência|Periodo|Período)\\s*[:·]?\\s*(\\d{2}\\/\\d{2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})/i)||[])[1];
+ const v=iso||fallback||"";
+ if(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v;
+ const m=v.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
+ return m?m[3]+"-"+m[2]+"-"+m[1]:"";
+}
+function parseDayMetrics(text){
+ const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
+ const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\\./g,""),10):null};
+ return {
+  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  cash:moneyMatch(/Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  pix:moneyMatch(/PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  posCredit:moneyMatch(/POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  posDebit:moneyMatch(/POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  tef:moneyMatch(/TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  coupons:intMatch(/Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)/i),
+  ticket:moneyMatch(/Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  branch:((text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]||"").split(/\\r?\\n/)[0].trim()
+ };
+}
+function renderDailyComparison(){
+ const panel=document.getElementById('dailyCompareView');
+ const empty=document.getElementById('dailyCompareEmpty');
+ const grid=document.getElementById('dailyCompareGrid');
+ const ready=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date));
+ const today=ready[ready.length-1];
+ const prev=today?ready.filter(r=>r.date<today.date).sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
+ if(!today||!prev){
+   empty.style.display='block';grid.style.display='none';
+   setText('dailyCompareSubtitle','A comparação usa datas reais dos relatórios importados da filial selecionada.');
+   empty.textContent='Visão diária indisponível: precisamos de relatórios de dois dias consecutivos, com data identificada. Nenhum número de exemplo será usado.';
+   return;
+ }
+ empty.style.display='none';grid.style.display='grid';
+ const delta=today.metrics.total-prev.metrics.total;
+ const deltaPct=prev.metrics.total?delta/prev.metrics.total*100:null;
+ setText('dailyCompareSubtitle',today.branch+' · '+today.date+' comparado com '+prev.date+'.');
+ setText('dailyTodayTotal',money(today.metrics.total));setText('dailyPrevTotal',money(prev.metrics.total));
+ setText('dailyTodayDate',today.date);setText('dailyPrevDate',prev.date);
+ setText('dailyDelta',(delta>=0?'+':'')+money(delta));setText('dailyDeltaCaption',delta>=0?'Faturamento acima do dia anterior':'Faturamento abaixo do dia anterior');
+ setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
+ setText('dailyTodayCoupons',today.metrics.coupons===null?'—':num(today.metrics.coupons));
+ setText('dailyPrevCoupons',prev.metrics.coupons===null?'—':num(prev.metrics.coupons));
+ setText('dailyTodayTicket',today.metrics.ticket===null?'—':money(today.metrics.ticket));
+ setText('dailyPrevTicket',prev.metrics.ticket===null?'—':money(prev.metrics.ticket));
+}
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
- const other=selectedType!=="sale-day" && selectedType!=="sale-month" && selectedType!=="sales-group";
- document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
- document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other));
-  document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
-  document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || selectedType==='sales-group');
-  document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
-  document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other);
+ const dailyMode=selectedType==="sale-day";
+ const other=!dailyMode && selectedType!=="sale-month" && selectedType!=="sales-group";
+ document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
+ document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other || dailyMode));
+ document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
+ document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
+ document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
+ document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other || dailyMode);
+ document.getElementById('dailyCompareView').classList.toggle('hidden-by-filter',!dailyMode);
  document.getElementById('otherReportView').classList.toggle('active',other);
- if(other){
+ if(dailyMode){
+   renderDailyComparison();
+   const newest=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+   setText('filterStatus',newest?'Visão diária calculada a partir de relatórios armazenados no navegador. A comparação exige dois dias consecutivos.':'Relatório diário ainda não importado. Os números de exemplo foram removidos até existir uma fonte validada.');
+ } else if(other){
    setText('otherReportTitle',reportNames[selectedType]);
-   setText('otherReportDescription','Relatório do menu Monitorbot. O painel mantém a consulta separada da “Venda do dia” para não misturar indicadores incompatíveis.');
+   setText('otherReportDescription','Relatório do menu Monitorbot. Conteúdo textual só aparece quando importado manualmente ou pela coleta automatizada.');
    const hasText=!!(report&&report.text);
    document.getElementById('otherReportEmpty').style.display=hasText?'none':'block';
    const raw=document.getElementById('otherReportRaw');
    raw.style.display=hasText?'block':'none';
    if(hasText){
-     const lines=report.text.split(/\r?\n/);
+     const lines=report.text.split(/\\r?\\n/);
      const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
-     raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
+     raw.textContent=filtered.length?filtered.join('\\n'):'Nenhuma linha corresponde à busca.';
    }
-   setText('filterStatus',hasText?`${reportNames[selectedType]} importado. Busca aplicada ao texto bruto.${period!=='all'?' O filtro de período é apenas indicativo até o relatório conter datas reconhecíveis.':''}`:`${reportNames[selectedType]} ainda não importado. Selecione “Atualizar relatório” para adicionar a coleta.`);
- }else{
-   setText('filterStatus',selectedType==='sales-group'?'Relatório 12 atualizado: faturamento, quantidade e preço médio por grupo. A soma dos grupos é R$ 202.366,12; confira a nota de conciliação abaixo.':selectedType==='sale-month'?'Resumo mensal de 26/10/2026. O Relatório 12 tem uma base de soma por grupos diferente e a divergência está sinalizada no painel.':'Exibindo os indicadores da última coleta de Venda do dia. Período e filial só podem filtrar dados identificados no texto importado.');
-   if(selectedType==='sales-group')renderGroupBars();
-   if(period==='today'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
-   else if(period==='month'&&!data.date)setText('filterStatus','A data do relatório não foi identificada. Informe a data ao importar para usar filtros de período com segurança.');
-   else if(period==='custom')setText('filterStatus','O filtro “Data informada” depende de uma data de referência inserida na importação.');
-   if(query)setText('filterStatus',`A busca “${document.getElementById('searchFilter').value}” está disponível nos relatórios textuais. Os indicadores de Venda do dia não são filtrados por palavra-chave.`);
+   setText('filterStatus',hasText?reportNames[selectedType]+' · busca aplicada ao texto bruto.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
+ } else {
+   document.querySelector('.hero').classList.remove('hidden-by-filter');
+   document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
+   document.querySelector('.showcase-grid').classList.remove('hidden-by-filter');
+   document.querySelector('.showcase-grid .panel:nth-child(2)').classList.remove('hidden-by-filter');
+   document.querySelector('.showcase-grid .panel:first-child').classList.remove('hidden-by-filter');
+   document.querySelector('.group-detail-panel').classList.remove('hidden-by-filter');
+   setText('filterStatus',selectedType==='sales-group'?'Relatório 12 ainda sem importação validada.':selectedType==='sale-month'?'Relatório mensal ainda sem importação validada. Os dados de exemplo foram removidos.':'Selecione o relatório diário para ver a comparação com o dia anterior.');
  }
 }
 const modal=document.getElementById('modal');
@@ -321,20 +406,25 @@ document.getElementById('applyBtn').onclick=()=>{
  if(!text){toast('Cole o texto do relatório antes de atualizar.');return}
  const date=document.getElementById('reportDate').value.trim();
  if(selectedType==='sale-day'){
-   data=parseReport(text,date);
-   importedReports[selectedType]={text,date,branch:data.branch};
-   render();
+   const metrics=parseDayMetrics(text);
+   const iso=reportDay(text,date);
+   if(metrics.total===null||!iso){toast('Para visão diária, informe uma data e confirme o total do relatório.');return}
+   const record={date:iso,branch:metrics.branch||base.branch,metrics,rawText:text,source:'manual_import',savedAt:new Date().toISOString()};
+   dailyReports=dailyReports.filter(x=>!(x.date===record.date&&x.branch===record.branch));
+   dailyReports.push(record);
+   localStorage.setItem('marcopao.dailyReports',JSON.stringify(dailyReports));
+   importedReports[selectedType]={text,date:iso,branch:record.branch};
  }else{
-   importedReports[selectedType]={text,date,branch:(text.match(/Filial\s*:\s*(.+)/i)||[])[1]?.split(/\r?\n/)[0]?.trim()||''};
+   importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\\n/)[0]?.trim()||''};
  }
- modal.classList.remove('open');applyFilters();toast('Relatório importado para consulta.');
+ modal.classList.remove('open');applyFilters();toast('Relatório importado nesta sessão do navegador.');
 };
-document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group'){renderGroupBars();setText('filterStatus','Relatório 12 atualizado · 14 grupos · outubro acumulado. Clique em qualquer grupo para abrir seus indicadores.');}else if(selectedType==='products-group'){setText('filterStatus','Relatório 13 · Top 10 por faturamento, sem embalagens. Os demais relatórios textuais mostram o conteúdo importado.');}});
+document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group')renderGroupBars();});
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
 document.getElementById('branchFilter').addEventListener('change',applyFilters);
 document.getElementById('searchFilter').addEventListener('input',applyFilters);
-document.getElementById('resetBtn').onclick=()=>{data={...base};importedReports={"sale-day":{text:"",date:"",branch:base.branch}};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('branchFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Relatório de exemplo restaurado.')};
+document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('branchFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
 function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 render();renderGroupBars();applyFilters();
 </script>
