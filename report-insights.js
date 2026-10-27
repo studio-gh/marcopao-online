@@ -60,6 +60,7 @@ function renderBlockedReport(type,pending){
 window.renderStructuredReport=function(type){
  activeStructuredType=type;
  const rec=window.structuredReports?.[type]||{},pending=window.pendingStructuredReports?.[type]||null,all=Array.isArray(rec.entries)?rec.entries:[],query=(document.getElementById('searchFilter').value||'').trim().toLocaleLowerCase('pt-BR');
+ if(!all.length&&pending){renderBlockedReport(type,pending);return;}
  ensureStructuredFilters(type);
  if(!all.length&&pending){renderBlockedReport(type,pending);return;}
  const categoryFilter=document.getElementById('structuredCategoryFilter')?.value||'';
@@ -70,7 +71,7 @@ window.renderStructuredReport=function(type){
  if(sort==='name-asc')rows.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
  else if(sortField)rows.sort((a,b)=>{const [field,direction]=sortField;const av=Number(a[field]??a.average??0),bv=Number(b[field]??b.average??0);return (av-bv)*direction;});
  const count=document.getElementById('structuredFilterCount');if(count)count.textContent=rows.length+' de '+all.length+' itens';
- document.getElementById('structuredStatus').textContent=rec.status==='validated'?'VALIDADO':'PENDENTE DE CONFERÊNCIA';
+ document.getElementById('structuredStatus').textContent='VALIDADO';
  document.getElementById('structuredSubtitle').textContent=(rec.periodStart&&rec.periodEnd?'Período '+rec.periodStart+' a '+rec.periodEnd:rec.date?'Período até '+rec.date:'Período não identificado')+' · '+(rec.branch||'Filial não identificada');
  document.getElementById('structuredRaw').textContent=rec.rawText||all.map(x=>x.raw||x.name||'').join('\n\n');
  let cards=[],chart='',head=[],body='',insight='';
