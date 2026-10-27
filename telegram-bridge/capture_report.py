@@ -217,46 +217,18 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         totals, warnings = parse_report_data(report_type, raw)
     except ValueError as exc:
         raise RuntimeError(f"Report validation failed; database write was not attempted: {exc}") from None
-    low_raw = norm(raw).lower()
     branch = report.get("branch", BRANCH)
-    if report_type == "sale_day":
-        period_start = requested_period
-        period_end = requested_period
-        report_date = requested_period
-    elif report_type == "monthly_sales":
-        period_start = requested_period + "-01"
-        period_end = (datetime.strptime(requested_period, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1).date().isoformat()
-        period_end = (datetime.fromisoformat(period_end).date() - timedelta(days=1)).isoformat()
-        report_date = None
-    else:
-        # Non-calendar reports are snapshots. For a YYYY-MM target the period is month-to-date.
-        if re.fullmatch(r"\\d{4}-\\d{2}", requested_period):
-            period_start = requested_period + "-01"
-            period_end = local_today_from_queried_at(queried_at, requested_period)
-        else:
-            period_start = requested_period
-            period_end = requested_period
-        report_date = period_end
-
-    payment_fields = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
-    if report_type in {"sale_day", "monthly_sales"} and "total" in totals and all(k in totals for k in payment_fields):
-        payment_sum = round(sum(float(totals[k]) for k in payment_fields), 2)
-        totals["payment_methods_sum"] = payment_sum
-        totals["payment_reconciliation_diff"] = round(payment_sum - float(totals["total"]), 2)
-        if abs(totals["payment_reconciliation_diff"]) > 0.02 and not any("Soma dos meios de pagamento" in w for w in warnings):
-            warnings.append("Soma dos meios de pagamento difere do total informado.")
-    totals["validation_warnings"] = warnings
+    period_start, period_end, report_date = report_period(report_type, queried_at, requested_period)
 
     notes = [
-        "Capturado automaticamente do Bellabyte; aguarda revisão semântica.",
-        "Relatório bruto preservado; status não será promovido automaticamente a validated.",
+        f"Captured report type={report_type}; needs human review.",
+        "Original Telegram text preserved in protected report_imports row.",
     ] + warnings
     card_details = report.get("card_details")
-    if card_details:
+    if card_details and report_type == "sale_day":
         totals["card_details"] = card_details
-        notes.append("Detalhes de cartão capturados separadamente. Não somar novamente ao total sem confirmar sobreposição.")
+        notes.append("Card breakdown captured separately; do not add twice without confirming overlap.")
 
-    # Stable identity for a report snapshot: repeated pulls of the same type/branch/period update one row.
     identity_hash = stable_report_identity(report_type, branch, period_start, period_end)
     row = {
         "report_type": report_type,
@@ -290,7 +262,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
                 raise RuntimeError(f"Supabase returned HTTP {response.status}")
             print(f"SUPABASE_IMPORT_HTTP={response.status}")
             print(f"SUPABASE_IMPORT_IDENTITY_HASH={identity_hash}")
-            print("SUPABASE_STATUS=needs_review")
+            print(f"SUPABASE_STATUS=needs_review")
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"Supabase import failed with HTTP {exc.code}") from None
 
