@@ -1,6 +1,12 @@
+import importlib.util
+import pathlib
 import unittest
 
-from telegram_bridge_capture_import import parse_totals
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location("capture_report", ROOT / "telegram-bridge" / "capture_report.py")
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+parse_totals = MODULE.parse_totals
 
 
 class ParseTotalsTests(unittest.TestCase):
