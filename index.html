@@ -684,6 +684,7 @@ function toast(s){const t=document.getElementById('toast');t.textContent=s;t.cla
 
 window.setSupabaseReports = function(rows){
  const list=rows||[];
+ window.structuredReports={};
  window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
  for(const row of list){
@@ -701,9 +702,9 @@ window.setSupabaseReports = function(rows){
    if(average!=null&&Number.isFinite(Number(average)))bits.push('Preço médio '+money(Number(average)));
    return bits.join(' · ');
   }).filter(Boolean).join('\n');
+  if(window.structuredReports[key])continue; // Rows are newest-first: keep the newest snapshot per report type.
   const rec={text:formatted,date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||'',status:row.status||'needs_review',entryCount:entries.length};
   importedReports[key]=rec;
-  window.structuredReports=window.structuredReports||{};
   window.structuredReports[key]={...rec,entries,reportType:row.report_type,periodStart:row.period_start||'',periodEnd:row.period_end||'',importedAt:row.imported_at||'',rawText:entries.map(item=>item.raw||'').join('\\n\\n')};
  }
  window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
@@ -731,7 +732,7 @@ window.setSupabaseReports = function(rows){
   setText('monthlyOverviewCaption','Aguardando importação do relatório 2 do Monitorbot.');
   setText('monthlyReviewState','Sem relatório');
  }
- if(selectedType==='sale-month')applyFilters();
+ if(selectedType==='sale-month'||["top-value","top-quantity","ticket","products-group"].includes(selectedType))applyFilters();
 };
 
 window.setSupabaseDailyReports = function(rows){
