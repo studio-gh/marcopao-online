@@ -673,7 +673,7 @@ def is_report_menu_message(message):
         return True
     labels = {label.strip().lower() for label in buttons(message)}
     required = {"1", "2", "3", "4", "10", "12", "13"}
-    return "menu inicial" in labels and required.issubset(labels)
+    return required.issubset(labels) and "relatório bellabyte" in norm(text).lower()
 
 def daily_report_date_mismatch(text, mode):
     """Detect the known dangerous case: 'today' sales returned when yesterday was requested."""
