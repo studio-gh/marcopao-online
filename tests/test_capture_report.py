@@ -58,6 +58,7 @@ Quantidades de Cupons: 8
 """
         self.assertTrue(matches_report(daily, "daily_yesterday"))
         self.assertFalse(matches_report("1: Venda do Dia. 2: Venda Acumulada Mês.", "daily_yesterday"))
+        self.assertFalse(matches_report("Venda do Dia: selecione a opção que deseja", "daily_yesterday"))
 
     def test_missing_total_is_flagged(self):
         totals, warnings = parse_totals("Venda do Dia\\nQuantidades de Cupons: 10")
