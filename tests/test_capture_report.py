@@ -9,6 +9,9 @@ SPEC.loader.exec_module(MODULE)
 parse_totals = MODULE.parse_totals
 matches_report = MODULE.matches_report
 daily_report_date_mismatch = MODULE.daily_report_date_mismatch
+report_type_for_option = MODULE.report_type_for_option
+monthly_period = MODULE.monthly_period
+stable_report_identity = MODULE.stable_report_identity
 
 
 
@@ -107,6 +110,33 @@ Quantidades de Cupons: 10
         self.assertEqual(totals["payment_methods_sum"], 200.0)
         self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
         self.assertEqual(warnings, [])
+
+    def test_menu_has_all_seven_report_types(self):
+        expected = {
+            "1": "sale_day",
+            "2": "monthly_sales",
+            "3": "top_value",
+            "4": "top_quantity",
+            "10": "ticket_average",
+            "12": "sales_by_group",
+            "13": "products_by_group",
+        }
+        for option, report_type in expected.items():
+            self.assertEqual(report_type_for_option(option), report_type)
+        self.assertIsNone(report_type_for_option("5"))
+
+    def test_monthly_period_is_dynamic_not_hardcoded(self):
+        self.assertEqual(monthly_period("2026-10-27"), "2026-10")
+        self.assertEqual(monthly_period("2027-01-02"), "2027-01")
+
+    def test_daily_identity_is_stable_across_report_revisions(self):
+        first = stable_report_identity("sale_day", "MARCOPAO", "2026-10-27", "2026-10-27")
+        second = stable_report_identity("sale_day", "MARCOPAO", "2026-10-27", "2026-10-27")
+        other_day = stable_report_identity("sale_day", "MARCOPAO", "2026-10-28", "2026-10-28")
+        other_report = stable_report_identity("monthly_sales", "MARCOPAO", "2026-10-01", "2026-10-31")
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, other_day)
+        self.assertNotEqual(first, other_report)
 
 
 if __name__ == "__main__":
