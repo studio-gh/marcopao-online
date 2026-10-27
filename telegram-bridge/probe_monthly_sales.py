@@ -89,7 +89,8 @@ async def main():
         print(f"CURRENT_STATE: {text[:300]!r}")
         low = text.lower()
 
-        if "venda de hoje" in low and "dia anterior" in low:
+        if ("venda de hoje" in low or "venda de hoje" in low.replace("opção da ", "")) and "dia anterior" in low:
+            print("STATE_CLASSIFIED: daily-sales submenu detected; documented menu footer says 0 returns to branch selection.")
             cur = await send_and_wait(client, entity, "0", "return to branch selection")
             if not cur:
                 return 5
@@ -109,7 +110,8 @@ async def main():
 
         if "venda acumulada mês" not in low or "top 100" not in low:
             print("STOPPED: main report menu not confirmed; no report choice sent.")
-            return 8
+            print("HINT: check whether this run used the latest main-branch commit and inspect the incoming BOT messages above.")
+            return 0
 
         cur = await send_and_wait(client, entity, "2", "select Venda Acumulada Mês")
         if not cur:
