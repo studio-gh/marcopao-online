@@ -28,7 +28,8 @@ async def wait_for_new(client, entity, previous_id, seconds=WAIT_SECONDS):
     for _ in range(seconds):
         await asyncio.sleep(1)
         msgs = await client.get_messages(entity, limit=10)
-        new = [m for m in msgs if m.id > previous_id]
+        # Ignore our own outgoing echo; wait for a bot response to avoid racing the state machine.
+        new = [m for m in msgs if m.id > previous_id and not m.out]
         if new:
             return sorted(new, key=lambda m: m.id)
     return []
