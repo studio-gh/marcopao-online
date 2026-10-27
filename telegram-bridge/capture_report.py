@@ -353,6 +353,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         "report_date": report_date,
         "source": "telegram_monitorbot",
         "raw_text": raw,
+        "imported_at": report.get("captured_at") or datetime.now(timezone.utc).isoformat(),
         "content_sha256": identity_hash,
         "status": "needs_review",
         "validation_notes": notes,
