@@ -169,6 +169,15 @@ Ticket Médio: 16,53
         self.assertTrue(matches_report_type("Top 100 Valor\nPão francês R$ 41600,11", "top_value"))
         self.assertFalse(matches_report_type("Venda Acumulada do Mês\nTotal: R$ 207977,18", "top_value"))
 
+    def test_product_rows_can_include_revenue_and_quantity(self):
+        row = "Pão francês R$ 41600,11 1.664,635 kg"
+        totals, warnings = parse_report_data("products_by_group", row)
+        self.assertEqual(totals["entry_count"], 1)
+        self.assertEqual(totals["entries"][0]["name"], "Pão francês")
+        self.assertEqual(totals["entries"][0]["value"], 41600.11)
+        self.assertEqual(totals["entries"][0]["quantity"], 1664.635)
+        self.assertEqual(totals["entries"][0]["unit"], "kg")
+
     def test_each_menu_report_type_is_distinct(self):
         examples = {
             "top_value": "Top 100 Valor\nPão francês R$ 41600,11",
