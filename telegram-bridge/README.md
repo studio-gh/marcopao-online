@@ -38,7 +38,7 @@ This is a capture/import stage, not approval. Review report semantics, month-to-
 
 ## Dashboard status
 
-The GitHub Pages dashboard has a dedicated daily-comparison layout and no longer shows its former hard-coded example revenue values. The daily view needs two real consecutive daily reports to calculate the difference and percentage. The website is still static and does **not yet read Supabase live**. Do not add anonymous read policies to financial tables: before the live dashboard connection is enabled, add an authenticated and allowlisted read path.
+The GitHub Pages dashboard authenticates users with Supabase Auth and checks `dashboard_access` before querying `report_imports`. The daily comparison uses actual daily reports only, shows a date filter for a specific day, and compares that date with the immediately previous day for the same branch. Status `needs_review` remains visibly pending review. Do not add anonymous read policies to financial tables.
 
 ## Next steps
 
