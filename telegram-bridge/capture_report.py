@@ -955,8 +955,15 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
             raise RuntimeError("Daily report lacks an explicit previous-day selection or matching date; refusing to save an ambiguous snapshot.")
     if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
         raise RuntimeError("Monthly report semantic validation failed.")
+    ticket_average_rows = (
+        report_type == "ticket_average"
+        and report_message_has_data(report_text)
+        and re.search(r"preço\s*m[eé]dio|preco\s*medio", report_text, re.IGNORECASE)
+    )
     if report_type not in {"sale_day", "monthly_sales"} and not (
-        report_title_match(report_text, report_type) or matches_report_type(report_text, report_type)
+        report_title_match(report_text, report_type)
+        or matches_report_type(report_text, report_type)
+        or ticket_average_rows
     ):
         raise RuntimeError(f"Report body failed semantic validation for {report_type}.")
 
