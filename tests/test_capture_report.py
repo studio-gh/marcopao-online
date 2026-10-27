@@ -258,6 +258,27 @@ Ticket Médio: 16,53
         self.assertIn("PAO FRANCES", raw)
         self.assertIn("PAO DE QUEIJO", raw)
 
+    def test_ticket_average_parses_paired_product_price_and_quantity_lines(self):
+        raw = """Ticket Preço venda Acumulada do Mês de Outubro Filial: MARCOPAO
+
+ACUCAR UNIAO 1 KG
+R$:6,90, Qtd:12UN
+
+CAVACA DE MILHO
+R$:49,90, Qtd:0,312KG
+R$:47,90, Qtd:21,876KG
+P.M:R$48,90, Q.T:22,188KG"""
+        totals, warnings = parse_report_data("ticket_average", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertEqual(totals["entries"][0]["name"], "ACUCAR UNIAO 1 KG")
+        self.assertEqual(totals["entries"][0]["quantity"], 12)
+        self.assertEqual(totals["entries"][0]["unit"], "un")
+        self.assertEqual(totals["entries"][0]["average"], 6.90)
+        self.assertEqual(totals["entries"][1]["name"], "CAVACA DE MILHO")
+        self.assertEqual(totals["entries"][1]["quantity"], 22.188)
+        self.assertEqual(totals["entries"][1]["unit"], "kg")
+        self.assertEqual(totals["entries"][1]["average"], 48.90)
+
     def test_ticket_average_fallback_accepts_price_only_rows(self):
         messages = [
             self.fake_message("Informe a data", ("Hoje", "Outubro"), 1),
