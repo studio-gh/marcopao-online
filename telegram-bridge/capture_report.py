@@ -283,12 +283,6 @@ def report_type_for_option(option):
 def monthly_period(date_value):
     return date_value[:7]
 
-def report_type_for_option(option):
-    return REPORT_OPTIONS.get(str(option).strip())
-
-def monthly_period(date_value):
-    return date_value[:7]
-
 def stable_report_identity(report_type, branch, period_start, period_end):
     identity = "|".join((str(report_type), norm(branch).upper(), str(period_start), str(period_end)))
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
