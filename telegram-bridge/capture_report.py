@@ -544,9 +544,15 @@ async def main():
                 print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
                 return 17
             output = save_report(report, report_type, requested_period)
+            # Always answer "Sim" to the optional card-details prompt. Keep the raw card
+            # detail in a linked review artifact rather than blindly adding it to daily sales,
+            # since card subtotals can overlap with POS/TEF already counted in the daily total.
             persist_to_supabase(output, report_type, requested_period, local_now)
-            await finish_card_prompt(client, entity)
-            print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period}")
+            card_report = await finish_card_prompt(client, entity)
+            if card_report:
+                card_file = save_report(card_report, "sale_day_cards", requested_period)
+                print(f"CARD_DETAILS_CAPTURED_FILE={card_file}")
+            print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} cards_requested=true")
             return 0
 
         if ("ano atual" in combined and "ano anterior" in combined):
