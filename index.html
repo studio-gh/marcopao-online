@@ -589,16 +589,18 @@ async function refreshDailyRows() {
   setStatus('Consultando os relatórios mais recentes no Supabase…');
   try {
     const {data, error} = await sb
-      .from('dashboard_daily_reports')
-      .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
-      .order('report_date', {ascending:false})
+      .from('report_imports')
+      .select('id,report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at,raw_text,validation_notes')
+      .in('report_type', ['sale_day','monthly_sales','top_value','top_quantity','ticket_average','sales_by_group','products_by_group'])
+      .order('imported_at', {ascending:false})
       .limit(200);
     if (error) throw error;
-    window.setSupabaseDailyReports(data || []);
-    const count = (data || []).length;
-    setStatus(count
-      ? count + ' relatório(s) diário(s) carregado(s) do Supabase. Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.'
-      : 'Consulta concluída: não há relatórios diários importados no Supabase. Este botão recarrega dados gravados; a coleta automática precisa ser executada separadamente.');
+    const rows = data || [];
+    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
+    window.setSupabaseReports(rows);
+    const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
+    const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
+    setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s), ' + monthlyCount + ' mensal(is). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
     return true;
   } catch (error) {
     console.error('Marcopão: falha ao consultar Supabase', error);
