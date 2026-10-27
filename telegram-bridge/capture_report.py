@@ -21,6 +21,22 @@ OUT_DIR = Path("artifacts")
 def norm(text):
     return " ".join((text or "").split())
 
+def is_report_body(text):
+    low = norm(text).lower()
+    return (
+        "r$" in low
+        or "dinheiro:" in low
+        or "pos crédito:" in low
+        or "pos débito:" in low
+        or "total de vendas nos pdvs" in low
+        or "venda acumulada do mês" in low
+        or "venda total do dia" in low
+    )
+
+def safe_preview(text, limit=220):
+    normalized = norm(text)
+    return f"<report body redacted; {len(normalized)} chars>" if is_report_body(normalized) else repr(normalized[:limit])
+
 def buttons(message):
     markup = getattr(message, "reply_markup", None)
     return [str(button.text).strip()
@@ -58,11 +74,7 @@ async def send_choice(client, entity, current, choice, reason):
         return None, []
     for message in replies:
         preview = norm(message.message)
-        low_preview = preview.lower()
-        if ("venda acumulada do mês" in low_preview or "venda do dia" in low_preview or "venda de hoje" in low_preview or "venda de ontem" in low_preview) and ("total" in low_preview or "cupons" in low_preview):
-            print(f"BOT_REPLY id={message.id} report_body_redacted=true chars={len(preview)}")
-        else:
-            print(f"BOT_REPLY id={message.id} prompt={preview[:220]!r}")
+        print(f"BOT_REPLY id={message.id} prompt={safe_preview(preview)}")
         labels = buttons(message)
         if labels:
             print("BUTTONS: " + " | ".join(labels[:25]))
@@ -270,7 +282,7 @@ async def main():
         return 2
     report_type = "sale_day" if mode == "daily_yesterday" else "monthly_sales"
     local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else local_now.strftime("%Y-%m")
+    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else "2026-10"
 
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
@@ -314,11 +326,7 @@ async def main():
                 return 15
 
         initial_preview = norm(current.message)
-        initial_low = initial_preview.lower()
-        if ("venda acumulada do mês" in initial_low or "venda do dia" in initial_low or "venda de hoje" in initial_low or "venda de ontem" in initial_low) and ("total" in initial_low or "cupons" in initial_low):
-            print(f"CURRENT_BOT_STATE id={current.id}: report_body_redacted=true chars={len(initial_preview)}")
-        else:
-            print(f"CURRENT_BOT_STATE id={current.id}: {initial_preview[:220]!r}")
+        print(f"CURRENT_BOT_STATE id={current.id}: {safe_preview(initial_preview)}")
         if buttons(current):
             print("BUTTONS: " + " | ".join(buttons(current)[:25]))
 
@@ -368,9 +376,7 @@ async def main():
                 if latest_now:
                     latest_text = norm(latest_now.message).lower()
                     if any(marker in latest_text for marker in ("venda do dia", "venda de hoje", "venda de ontem")) and ("total" in latest_text or "cupons" in latest_text):
-                        print(f"DAILY_REPORT_NOT_FOUND; latest_report_like_message_redacted=true chars={len(latest_now.message or '')}")
-                    else:
-                        print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={norm(latest_now.message)[:220]!r}; buttons={buttons(latest_now)!r}")
+                        print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
                 return 8
             output = save_report(report, report_type, requested_period)
             persist_to_supabase(output, report_type, requested_period, local_now)
@@ -394,7 +400,7 @@ async def main():
         if not report:
             latest_now = await latest_incoming(client, entity)
             if latest_now:
-                print(f"MONTHLY_REPORT_NOT_FOUND; current prompt={norm(latest_now.message)[:1200]!r}; buttons={buttons(latest_now)!r}")
+                print(f"MONTHLY_REPORT_NOT_FOUND; current_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
             return 11
         output = save_report(report, report_type, requested_period)
         persist_to_supabase(output, report_type, requested_period, local_now)
