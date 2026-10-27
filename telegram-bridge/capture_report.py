@@ -379,6 +379,8 @@ async def finish_card_prompt(client, entity):
         else:
             print(f"CARD_DETAILS_CAPTURED message_id={card_report.id}; review card totals before combining with daily total.")
         return card_report
+    # Card prompt may already have been answered in a previous run, leaving the bot at its
+    # menu or at the report body. Do not send report 1 again just to "finish" the flow.
     return None
 
 async def main():
