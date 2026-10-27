@@ -610,34 +610,24 @@ window.setSupabaseReports = function(rows){
 };
 window.setSupabaseDailyReports = function(rows){
  const remote=(rows||[]).map(row=>{
-  const t=row.totals||{};
-  const date=row.report_date||row.period_start||'';
-  return {
-   date:String(date).slice(0,10),
-   branch:row.branch_name_raw||'Filial não identificada',
-   metrics:{
-    total:t.total==null?null:Number(t.total),
-    coupons:t.cupons==null?null:Number(t.cupons),
-    ticket:t.ticket_medio==null?null:Number(t.ticket_medio)
-   },
-   cardDetails:t.card_details||null,
-   status:row.status||'needs_review',
-   source:'supabase',
-   importedAt:row.imported_at||''
-  };
+  const t=row.totals||{}, date=row.report_date||row.period_start||'';
+  return {date:String(date).slice(0,10),branch:row.branch_name_raw||'Filial não identificada',
+   metrics:{total:t.total==null?null:Number(t.total),coupons:t.cupons==null?null:Number(t.cupons),ticket:t.ticket_medio==null?null:Number(t.ticket_medio)},
+   cardDetails:t.card_details||null,status:row.status||'needs_review',source:'supabase',importedAt:row.imported_at||''};
  }).filter(row=>row.date&&Number.isFinite(row.metrics.total));
- // Preserve the newest import for each branch/date even when the API returns ties in an arbitrary order.
  remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
- const latestPerDay=new Map();
- for(const row of remote) latestPerDay.set(row.branch+'|'+row.date,row);
+ const latestPerDay=new Map();for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
  const uniqueDailyReports=[...latestPerDay.values()];
- if(uniqueDailyReports.length){
-  dailyReports=uniqueDailyReports;
-  localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));
- }else{
-  try{dailyReports=JSON.parse(localStorage.getItem('marcopao.dailyReports')||'[]')}catch(_){dailyReports=[]}
- }
+ if(uniqueDailyReports.length){dailyReports=uniqueDailyReports;localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));}
+ else{try{dailyReports=JSON.parse(localStorage.getItem('marcopao.dailyReports')||'[]')}catch(_){dailyReports=[]}}
  if(selectedType==='sale-day')applyFilters();
+};
+window.setSupabaseReports = function(rows){
+ const list=rows||[];
+ window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
+ const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
+ for(const row of list){if(!types[row.report_type])continue;const k=types[row.report_type];importedReports[k]={text:row.raw_text||'',date:row.period_end||row.report_date||'',branch:row.branch_name_raw||''};}
+ if(selectedType==='sale-month')applyFilters();
 };
 render();renderGroupBars();applyFilters();
 </script>
