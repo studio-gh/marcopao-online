@@ -216,26 +216,20 @@ def is_main_menu(text):
 def matches_report(text, mode):
     low = norm(text).lower()
     if mode == "daily_yesterday":
-        # A complete daily report should be a report body, not the menu title
-        # "1: Venda do Dia" and not the daily selection prompt.
-        report_markers = (
-            "venda total do dia",
-            "total de vendas nos pdvs",
-            "quantidades de cupons",
-        )
+        # Require report-body markers so a menu title or prompt cannot be mistaken for the report.
         return (
-            any(marker in low for marker in report_markers)
+            any(marker in low for marker in (
+                "venda total do dia", "total de vendas nos pdvs", "quantidades de cupons"
+            ))
             and ("dinheiro" in low or "tef" in low or "pix" in low)
             and "venda acumulada do mês" not in low
             and "selecione a opção da venda de hoje" not in low
         )
-    # Monthly report title and body are required; menu lines alone must not match.
     return (
         "venda acumulada do mês" in low
         and ("total de vendas nos pdvs" in low or "venda total do dia" in low)
         and "deseja visualizar os cartões" not in low
     )
-
 async def search_recent_report(client, entity, mode, after_id=None):
     items = await client.get_messages(entity, limit=100)
     candidates = [m for m in items if not m.out and matches_report(m.message, mode)]
