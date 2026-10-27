@@ -642,8 +642,8 @@ async function refreshDailyRows() {
       .limit(200);
     if (error) throw error;
     const rows = data || [];
-    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
     window.setSupabaseReports(rows);
+    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
     setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s), ' + monthlyCount + ' mensal(is). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
