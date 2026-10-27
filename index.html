@@ -492,6 +492,8 @@ window.setSupabaseDailyReports = function(rows){
    importedAt:row.imported_at||''
   };
  }).filter(row=>row.date&&Number.isFinite(row.metrics.total));
+ // Preserve the newest import for each branch/date even when the API returns ties in an arbitrary order.
+ remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
  const latestPerDay=new Map();
  for(const row of remote) latestPerDay.set(row.branch+'|'+row.date,row);
  const uniqueDailyReports=[...latestPerDay.values()];
