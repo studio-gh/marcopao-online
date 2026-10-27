@@ -235,6 +235,21 @@ Ticket Médio: 16,53
         self.assertEqual(totals["entries"][1]["name"], "LANCHONETE")
         self.assertEqual(totals["entries"][1]["average"], 7.75)
 
+    def test_products_by_group_title_variant_is_recognized(self):
+        self.assertTrue(report_title_match("Vendas produtos por grupo Todos Filial: MARCOPAO", "products_by_group"))
+
+    def test_ticket_average_can_start_from_price_rows_after_selector_prompts(self):
+        messages = [
+            self.fake_message("Ticket Medio Preço Vendas por quantidade", ("Todos", "PADARIA"), 1),
+            self.fake_message("Informe a data", ("Hoje", "Outubro"), 2),
+            self.fake_message("PAO FRANCES Quantidade: 100 KG Preço Médio R$: 24,99", ("1", "2"), 3),
+            self.fake_message("PAO DE QUEIJO Quantidade: 20 KG Preço Médio R$: 63,00", ("1", "2"), 4),
+        ]
+        report, raw = find_report_payload(messages, "ticket_average")
+        self.assertEqual(report.id, 3)
+        self.assertIn("PAO FRANCES", raw)
+        self.assertIn("PAO DE QUEIJO", raw)
+
     def test_group_title_is_recognized_even_when_body_is_a_separate_message(self):
         self.assertTrue(report_title_match("Vendas por grupoAcumulada do Mês de Outubro Filial: MARCOPAO", "sales_by_group"))
         self.assertTrue(report_title_match("Vendas de Produto Por Grupo Acumulada do Mês", "products_by_group"))
