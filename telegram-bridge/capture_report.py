@@ -56,7 +56,12 @@ async def send_choice(client, entity, current, choice, reason):
         print("NO_BOT_REPLY: no response within 30 seconds.")
         return None, []
     for message in replies:
-        print(f"BOT_REPLY id={message.id} text={norm(message.message)[:900]!r}")
+        preview = norm(message.message)
+        low_preview = preview.lower()
+        if ("venda acumulada do mês" in low_preview or "venda do dia" in low_preview or "venda de hoje" in low_preview or "venda de ontem" in low_preview) and ("total" in low_preview or "cupons" in low_preview):
+            print(f"BOT_REPLY id={message.id} report_body_redacted=true chars={len(preview)}")
+        else:
+            print(f"BOT_REPLY id={message.id} prompt={preview[:220]!r}")
         labels = buttons(message)
         if labels:
             print("BUTTONS: " + " | ".join(labels[:25]))
@@ -67,14 +72,14 @@ def br_number(value):
 
 def parse_totals(raw):
     patterns = {
-        "dinheiro": r"Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pix": r"PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pos_credito": r"POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "pos_debito": r"POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "tef": r"TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "ticket_pagamento": r"TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "total": r"(?:Venda Total do dia|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
-        "ticket_medio": r"Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "dinheiro": r"Dinheiro\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pix": r"PIX\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pos_credito": r"POS Crédito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pos_debito": r"POS Débito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "tef": r"TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "ticket_pagamento": r"TICKET\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "total": r"(?:Venda Total do dia|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "ticket_medio": r"Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
     }
     totals = {}
     warnings = []
@@ -85,7 +90,7 @@ def parse_totals(raw):
                 totals[key] = round(br_number(match.group(1)), 2)
             except ValueError:
                 warnings.append(f"Valor inválido: {key}")
-    coupons = re.search(r"Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)", raw, re.IGNORECASE)
+    coupons = re.search(r"Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)", raw, re.IGNORECASE)
     if coupons:
         totals["cupons"] = int(coupons.group(1).replace(".", ""))
     if "total" not in totals:
@@ -287,7 +292,12 @@ async def main():
         if not current:
             print("NO_INCOMING_BOT_MESSAGES")
             return 5
-        print(f"CURRENT_BOT_STATE id={current.id}: {norm(current.message)[:700]!r}")
+        initial_preview = norm(current.message)
+        initial_low = initial_preview.lower()
+        if ("venda acumulada do mês" in initial_low or "venda do dia" in initial_low or "venda de hoje" in initial_low or "venda de ontem" in initial_low) and ("total" in initial_low or "cupons" in initial_low):
+            print(f"CURRENT_BOT_STATE id={current.id}: report_body_redacted=true chars={len(initial_preview)}")
+        else:
+            print(f"CURRENT_BOT_STATE id={current.id}: {initial_preview[:220]!r}")
         if buttons(current):
             print("BUTTONS: " + " | ".join(buttons(current)[:25]))
 
