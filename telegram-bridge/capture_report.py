@@ -196,6 +196,69 @@ def parse_report_data(report_type, raw):
             totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
             if abs(totals["payment_reconciliation_diff"]) > 0.02:
                 warnings.append("Soma dos meios de pagamento difere do total informado.")
+    elif report_type == "ticket_average":
+        # Report 10 is a two-line-per-product listing: product name, then price and quantity.
+        # Some products have multiple price/quantity rows followed by P.M (average) and Q.T (total quantity).
+        entries = []
+        blocks = re.split(r"\n\s*\n+", raw.strip())
+        for block_text in blocks:
+            block_lines = [line.strip() for line in block_text.splitlines() if line.strip()]
+            if len(block_lines) < 2:
+                continue
+            name = block_lines[0].strip(" .:-")
+            metrics_text = "\n".join(block_lines[1:])
+            if not re.search(r"R\$\s*:|Qtd\s*:|P\.?M\.?\s*:|Q\.?T\.?\s*:", metrics_text, re.IGNORECASE):
+                continue
+            if re.search(r"^(ticket|preço|preco|filial|total|vendas por grupo)\b", name, re.IGNORECASE):
+                continue
+
+            def decimal_number(token):
+                return float(token.replace(".", "").replace(",", "."))
+
+            total_quantity_match = re.search(
+                r"Q\.?\s*T\.?\s*:\s*([\d.]+(?:,\d+)?)\s*(kg|un(?:idade)?s?)?",
+                metrics_text, re.IGNORECASE
+            )
+            quantity_matches = re.findall(
+                r"Qtd\s*:\s*([\d.]+(?:,\d+)?)\s*(kg|un(?:idade)?s?)?",
+                metrics_text, re.IGNORECASE
+            )
+            unit = None
+            quantity = None
+            if total_quantity_match:
+                quantity = decimal_number(total_quantity_match.group(1))
+                unit = total_quantity_match.group(2)
+            elif quantity_matches:
+                quantity = sum(decimal_number(qty) for qty, _ in quantity_matches)
+                unit = next((u for _, u in quantity_matches if u), None)
+            if unit and unit.lower().startswith("un"):
+                unit = "un"
+            elif unit:
+                unit = unit.lower()
+
+            average_match = re.search(
+                r"P\.?\s*M\.?\s*:\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                metrics_text, re.IGNORECASE
+            )
+            price_matches = re.findall(r"R\$\s*:?\s*([\d.]+,\d{2})", metrics_text, re.IGNORECASE)
+            average = round(br_number(average_match.group(1)), 2) if average_match else (
+                round(br_number(price_matches[0]), 2) if len(price_matches) == 1 else None
+            )
+            entry = {"rank": len(entries) + 1, "name": name, "raw": block_text}
+            if quantity is not None:
+                entry["quantity"] = quantity
+            if unit:
+                entry["unit"] = unit
+            if average is not None:
+                entry["average"] = average
+                entry["unit_price"] = average
+            entries.append(entry)
+
+        totals["entries"] = entries
+        totals["entry_count"] = len(entries)
+        totals["raw_line_count"] = len(raw.splitlines())
+        if not entries:
+            warnings.append("Formato do relatório de preço/quantidade não reconhecido; conteúdo bruto preservado para revisão.")
     else:
         # Bellabyte often sends 30 ranked rows per Telegram message on a single line.
         # Split on every rank marker, even when a message chunk was joined with literal spaces.
