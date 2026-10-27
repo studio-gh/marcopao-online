@@ -18,6 +18,7 @@ monthly_period = MODULE.monthly_period
 stable_report_identity = MODULE.stable_report_identity
 find_report_payload = MODULE.find_report_payload
 report_title_match = MODULE.report_title_match
+is_report_menu_message = MODULE.is_report_menu_message
 
 
 
@@ -116,6 +117,13 @@ Quantidades de Cupons: 10
         self.assertEqual(totals["payment_methods_sum"], 200.0)
         self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
         self.assertEqual(warnings, [])
+
+    def test_report_menu_detected_when_branch_welcome_text_repeats(self):
+        message = self.fake_message(
+            "Bem vindo Relatório Bellabyte Digite qual filial deseja se conectar? 1: MARCOPAO",
+            ("1", "2", "3", "4", "10", "12", "13", "Menu Inicial", "#", "0"),
+        )
+        self.assertTrue(is_report_menu_message(message))
 
     def test_menu_has_all_seven_report_types(self):
         expected = {
