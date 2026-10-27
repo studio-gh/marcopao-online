@@ -329,8 +329,16 @@ REPORT_OPTIONS = {
     "13": "products_by_group",
 }
 REPORT_MENU_OPTIONS = tuple(REPORT_OPTIONS.keys())
-MONTHLY_TYPES = {"monthly_sales"}
-REPORT_MODE = {"daily_yesterday": "sale_day", "monthly_sales": "monthly_sales"}
+REPORT_MODES = {
+    "daily_yesterday": "sale_day",
+    "monthly_accumulated": "monthly_sales",
+    "top_value": "top_value",
+    "top_quantity": "top_quantity",
+    "ticket_average": "ticket_average",
+    "sales_by_group": "sales_by_group",
+    "products_by_group": "products_by_group",
+}
+REPORT_TYPE_TO_OPTION = {value: key for key, value in REPORT_OPTIONS.items()}
 
 def report_type_for_option(option):
     return REPORT_OPTIONS.get(str(option).strip())
@@ -345,11 +353,53 @@ def local_today_from_queried_at(queried_at, requested_month):
     if stamp.tzinfo is None:
         stamp = stamp.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
     local = stamp.astimezone(ZoneInfo("America/Sao_Paulo")).date().isoformat()
-    return local if local[:7] == requested_month else (datetime.strptime(requested_month, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1).date().isoformat()
+    if local[:7] == requested_month:
+        return local
+    next_month = (datetime.strptime(requested_month, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1)
+    return (next_month.date() - timedelta(days=1)).isoformat()
 
 def stable_report_identity(report_type, branch, period_start, period_end):
     identity = "|".join((str(report_type), norm(branch).upper(), str(period_start), str(period_end)))
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+def report_period(report_type, queried_at, requested_period):
+    if report_type == "monthly_sales":
+        start = requested_period + "-01"
+        next_month = (datetime.strptime(requested_period, "%Y-%m").replace(day=28) + timedelta(days=4)).replace(day=1)
+        return start, (next_month.date() - timedelta(days=1)).isoformat(), None
+    if report_type == "sale_day":
+        return requested_period, requested_period, requested_period
+    if re.fullmatch(r"\\d{4}-\\d{2}", requested_period):
+        start = requested_period + "-01"
+        end = local_today_from_queried_at(queried_at, requested_period)
+        return start, end, end
+    return requested_period, requested_period, requested_period
+
+def matches_report_type(text, report_type):
+    low = norm(text).lower()
+    if not is_report_body(text):
+        return False
+    if report_type == "sale_day":
+        return matches_report(text, "daily_yesterday")
+    if report_type == "monthly_sales":
+        return "venda acumulada do mês" in low and ("total de vendas nos pdvs" in low or "venda total do dia" in low)
+    marker_map = {
+        "top_value": ("top 100 valor", "top 100 por valor", "maiores vendas por valor", "valor total"),
+        "top_quantity": ("top 100 quantidade", "top 100 por quantidade", "maiores vendas por quantidade"),
+        "ticket_average": ("ticket médio preço vendas por quantidade", "ticket médio preço", "ticket médio por produto"),
+        "sales_by_group": ("total vendas por grupo", "total de vendas por grupo", "vendas por grupo"),
+        "products_by_group": ("vendas de produto por grupo", "venda de produto por grupo", "produtos por grupo"),
+    }
+    markers = marker_map.get(report_type, ())
+    return any(marker in low for marker in markers)
+
+def report_target_period(report_type, now):
+    if report_type == "sale_day":
+        return (now.date() - timedelta(days=1)).isoformat()
+    if report_type == "monthly_sales":
+        return now.strftime("%Y-%m")
+    return now.strftime("%Y-%m")
+
 
 def is_main_menu(text):
     low = norm(text).lower()
@@ -489,232 +539,143 @@ async def finish_card_prompt(client, entity):
     # menu or at the report body. Do not send report 1 again just to "finish" the flow.
     return None
 
+async def collect_one_report(client, entity, report_type, requested_period, local_now):
+    option = REPORT_TYPE_TO_OPTION[report_type]
+    current = await latest_incoming(client, entity)
+    current = await recover_menu(client, entity, current)
+    if current is None or not is_main_menu(current.message):
+        raise RuntimeError("Report menu could not be confirmed before selecting option " + option)
+    menu_id = current.id
+    latest, replies = await send_choice(client, entity, current, option, f"select report type {report_type}")
+    if not replies:
+        raise RuntimeError("Monitorbot did not answer option " + option)
+    latest = await ensure_bellabyte_login(client, entity, latest)
+    latest = await latest_incoming(client, entity) or latest
+    combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
+    if report_type == "sale_day":
+        # Handle the daily report's explicit previous-day flow; never save today's report as yesterday.
+        visible = [label.lower() for label in buttons(latest)]
+        if any("dia anterior" in label or label == "anterior" for label in visible) or ("hoje" in norm(latest.message).lower() and "anterior" in norm(latest.message).lower()):
+            latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "select previous day for daily sales")
+            if not replies2:
+                raise RuntimeError("Monitorbot did not return the previous-day report")
+            replies.extend(replies2)
+            latest = await latest_incoming(client, entity) or latest
+    elif report_type == "monthly_sales":
+        if "ano atual" in combined and "ano anterior" in combined:
+            latest, more = await send_choice(client, entity, latest, "Ano Atual", "select current year for monthly accumulated sales")
+            if not more:
+                raise RuntimeError("Monitorbot did not return the current-year menu")
+            replies.extend(more)
+            latest = await latest_incoming(client, entity) or latest
+        month_name = datetime.strptime(requested_period, "%Y-%m").strftime("%B").lower()
+        month_pt = {"january":"janeiro","february":"fevereiro","march":"março","april":"abril","may":"maio","june":"junho","july":"julho","august":"agosto","september":"setembro","october":"outubro","november":"novembro","december":"dezembro"}[month_name]
+        if "selecione a opção desejada" in combined or ("selecione o mês" in combined):
+            candidates = [label for label in buttons(latest) if month_pt in label.lower()]
+            if candidates:
+                latest, more = await send_choice(client, entity, latest, candidates[0], "select current month for monthly accumulated sales")
+                if not more:
+                    raise RuntimeError("Monitorbot did not return monthly accumulated sales")
+                replies.extend(more)
+                latest = await latest_incoming(client, entity) or latest
+    else:
+        if not any(matches_report_type(message.message, report_type) for message in replies):
+            # The intermediate menu may expose the submenu choice after the report option.
+            available = [label for label in buttons(latest) if label.isdigit()]
+            if available and "selecione" in norm(latest.message).lower():
+                latest, more = await send_choice(client, entity, latest, option, "confirm report option " + option)
+                if more:
+                    replies.extend(more)
+                    latest = await latest_incoming(client, entity) or latest
+
+    report = next((m for m in reversed(replies) if matches_report_type(m.message, report_type)), None)
+    if report is None:
+        report = await wait_for_report(client, entity, report_type, after_id=menu_id, timeout=35)
+    if report is None:
+        latest_now = await latest_incoming(client, entity)
+        raise RuntimeError(f"Report {option} ({report_type}) not found; latest response={safe_preview(latest_now.message) if latest_now else 'none'}; buttons={buttons(latest_now) if latest_now else []}")
+
+    # Date-specific safeguards for daily and monthly reports.
+    low = norm(report.message).lower()
+    if report_type == "sale_day" and daily_report_date_mismatch(report.message, "daily_yesterday"):
+        raise RuntimeError("Daily report title says today while the requested period is yesterday.")
+    if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
+        raise RuntimeError("Monthly report semantic validation failed.")
+
+    output = save_report(report, report_type, requested_period)
+    card_report = None
+    if report_type == "sale_day":
+        card_report = await finish_card_prompt(client, entity)
+    if card_report:
+        card_details = {
+            "message_id": card_report.id,
+            "message_date": card_report.date.astimezone(timezone.utc).isoformat() if card_report.date else None,
+            "raw_text": card_report.message or "",
+            "content_sha256": hashlib.sha256((card_report.message or "").encode("utf-8")).hexdigest(),
+            "status": "needs_review",
+        }
+        card_totals, card_warnings = parse_report_data("sale_day", card_details["raw_text"])
+        card_details["parsed_totals"] = card_totals
+        card_details["validation_warnings"] = card_warnings
+        card_details["note"] = "Card breakdown captured separately; do not add it again without confirming overlap."
+        report_data = json.loads(Path(output).read_text(encoding="utf-8"))
+        report_data["card_details"] = card_details
+        Path(output).write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    persist_to_supabase(output, report_type, requested_period, local_now)
+    print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} option={option}")
+    return output
+
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
-    if mode not in {"daily_yesterday", "monthly_accumulated"}:
-        print("INVALID_REPORT_MODE")
-        return 2
-    report_type = "sale_day" if mode == "daily_yesterday" else "monthly_sales"
+    if mode == "all_reports":
+        modes = list(REPORT_OPTIONS.values())
+    else:
+        allowed = set(REPORT_MODES)
+        if mode not in allowed:
+            print("INVALID_REPORT_MODE")
+            return 2
+        modes = [REPORT_MODES[mode]]
     local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else monthly_period(local_now.date().isoformat())
-
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
     session = os.environ.get("TELEGRAM_SESSION_STRING", "").strip()
     if not all((api_id, api_hash, session)):
         print("CONFIG_MISSING: required Telegram Actions secrets are missing.")
         return 3
-
     if not os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip():
         print("SUPABASE_SERVICE_ROLE_KEY_MISSING: add the secret before running a collector that persists data.")
         return 12
+
     client = TelegramClient(StringSession(session), int(api_id), api_hash)
+    succeeded, failed = [], []
     try:
         await client.connect()
         if not await client.is_user_authorized():
             print("SESSION_NOT_AUTHORIZED")
             return 4
         entity = await client.get_entity(BOT)
-        current = await latest_incoming(client, entity)
-        if not current:
-            print("NO_INCOMING_BOT_MESSAGES")
-            return 5
-
-        # Bellabyte application login is separate from Telegram session authorization.
-        state = norm(current.message).lower()
-        if "precisa se logar" in state or "precisa fazer login" in state:
-            password = os.environ.get("BELLABYTE_PASSWORD", "")
-            if not password:
-                print("BELLABYTE_PASSWORD_MISSING")
-                return 13
-            current, login_replies = await send_choice(client, entity, current, password, "Bellabyte application login password")
-            if not login_replies:
-                print("BELLABYTE_LOGIN_NO_REPLY")
-                return 14
-            latest = await latest_incoming(client, entity)
-            if latest:
-                current = latest
-            state = norm(current.message).lower()
-            if "precisa se logar" in state or "precisa fazer login" in state:
-                print("BELLABYTE_LOGIN_NOT_ACCEPTED")
-                return 15
-
-        initial_preview = norm(current.message)
-        print(f"CURRENT_BOT_STATE id={current.id}: {safe_preview(initial_preview)}")
-        if buttons(current):
-            print("BUTTONS: " + " | ".join(buttons(current)[:25]))
-
-        current = await recover_menu(client, entity, current)
-        menu_id = current.id
-        option = "1" if mode == "daily_yesterday" else "2"
-        current, replies = await send_choice(
-            client, entity, current, option,
-            "select daily sales report" if mode == "daily_yesterday" else "select monthly accumulated sales"
-        )
-        if not replies:
-            return 6
-        latest = replies[-1]
-        latest = await ensure_bellabyte_login(client, entity, latest)
-        latest = await latest_incoming(client, entity) or latest
-        combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
-
-        if mode == "daily_yesterday":
-            # Historical messages are not date-keyed reliably by Telegram and can be stale.
-            # Never backfill a date from the message timestamp alone; request the target day
-            # from the bot's explicit date-selection flow below instead.
-            # Avoid stale monthly/year-selection prompts returned from old bot history.
-            latest_text = norm(latest.message).lower()
-            if (("ano atual" in latest_text and "ano anterior" in latest_text)
-                    or ("selecione o mês" in latest_text and "outubro" in latest_text)
-                    or ("selecione a opção desejada" in latest_text and "outubro" in combined)):
-                print("DAILY_FLOW_BLOCKED_BY_STALE_MONTH_PROMPT: returning to a clean state instead of selecting a mismatched button.")
-                reset, reset_replies = await send_choice(client, entity, latest, "0", "recover daily collector from stale monthly-report prompt")
-                if not reset_replies:
-                    print("RESET_AFTER_STALE_MONTH_PROMPT_FAILED")
-                    return 16
-                print("RECOVERY_COMPLETE: clean-state reset sent; refusing to treat a monthly result as a daily report.")
-                return 0
-            visible_labels = [label.strip().lower() for label in buttons(latest)]
-            has_previous_day_button = any(
-                label == "anterior" or "dia anterior" in label for label in visible_labels
-            )
-            prompt_mentions_day_choices = "dia anterior" in norm(latest.message).lower() or ("hoje" in norm(latest.message).lower() and "anterior" in norm(latest.message).lower())
-            if has_previous_day_button:
-                latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "request the previous day's sales")
-                if not replies2:
-                    return 7
-                replies.extend(replies2)
-                # If the bot shows a year/month selector rather than a report, complete the
-                # explicit historical date flow instead of saving a current-day result as yesterday.
-                prompt = norm(latest.message).lower()
-                visible = [label.strip().lower() for label in buttons(latest)]
-                if "ano atual" in prompt and "ano anterior" in prompt:
-                    latest, year_replies = await send_choice(client, entity, latest, "Ano Anterior", "select previous year for historical daily report")
-                    if not year_replies:
-                        return 18
-                    replies.extend(year_replies)
-                    latest = await latest_incoming(client, entity) or latest
-                    prompt = norm(latest.message).lower()
-                    visible = [label.strip().lower() for label in buttons(latest)]
-                if "selecione o mês" in prompt or ("mês" in prompt and visible):
-                    candidates = [label for label in buttons(latest) if "outubro" in label.lower()]
-                    if candidates:
-                        latest, month_replies = await send_choice(client, entity, latest, candidates[0], "select month for historical daily report")
-                        if not month_replies:
-                            return 19
-                        replies.extend(month_replies)
-                        latest = await latest_incoming(client, entity) or latest
-                        prompt = norm(latest.message).lower()
-                        visible = [label.strip().lower() for label in buttons(latest)]
-                # The bot's daily result arrives with an optional "Deseja visualizar os cartões?" prompt.
-                # In this flow the actual report is the preceding reply, not that follow-up prompt.
-                report_candidate = next((m for m in reversed(replies2) if matches_report(m.message, mode)), None)
-                if report_candidate is None:
-                    print(f"HISTORICAL_DAILY_SELECTION_INCOMPLETE prompt={safe_preview(latest.message)}; refusing to persist an incorrectly dated report.")
-                    return 20
-                latest = report_candidate
-                latest_text = norm(latest.message).lower()
-                explicit_dates = re.search(r"(?:data|referência|período)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})", latest.message, re.I)
-                if explicit_dates:
-                    raw_date = explicit_dates.group(1)
-                    if "/" in raw_date:
-                        dd, mm, yyyy = raw_date.split("/")
-                        confirmed_date = f"{yyyy}-{mm}-{dd}"
-                    else:
-                        confirmed_date = raw_date
-                    if confirmed_date != requested_period:
-                        print(f"HISTORICAL_DAILY_DATE_MISMATCH expected={requested_period} found={confirmed_date}; not saving.")
-                        return 21
-            elif prompt_mentions_day_choices and not visible_labels:
-                latest, replies2 = await send_choice(client, entity, latest, "Dia anterior", "request the previous day's sales from an explicit text prompt")
-                if not replies2:
-                    return 7
-                replies.extend(replies2)
-            elif prompt_mentions_day_choices and visible_labels:
-                # Do not choose the wrong year/month buttons when the prompt and keyboard disagree.
-                print("DAILY_MENU_MISMATCH: visible buttons do not include Dia anterior; resetting to branch selection.")
-                reset, reset_replies = await send_choice(client, entity, latest, "0", "recover mismatched daily menu")
-                if not reset_replies:
-                    print("RESET_AFTER_DAILY_MISMATCH_FAILED")
-                    return 16
-                print("RECOVERY_COMPLETE: returned to a clean menu state; daily report not captured this run.")
-                return 0
-
-            # The selected "Dia anterior" response is often followed by a card prompt.
-            # Find the report body in the fresh replies and always answer the card prompt.
-            report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
-            if not report:
-                report = await wait_for_report(client, entity, mode, after_id=menu_id)
-            if not report:
-                latest_now = await latest_incoming(client, entity)
-                if latest_now:
-                    latest_text = norm(latest_now.message).lower()
-                    if "deseja visualizar os cartões" in latest_text or "deseja visualizar os cartoes" in latest_text:
-                        print("CARD_PROMPT_WITHOUT_DAILY_REPORT: stopping instead of re-requesting report 1.")
-                    else:
-                        print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
-                return 8
-            latest_text = norm(report.message).lower()
-            if ("venda acumulada do mês" in latest_text
-                    or not any(marker in latest_text for marker in ("venda total do dia", "venda do dia", "venda de ontem", "venda de hoje", "total de vendas nos pdvs"))):
-                print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
-                return 17
-            # This collector requests the previous day. Never store a report titled "Venda de Hoje"
-            # under yesterday's date; such a mismatch used to happen when simultaneous runs raced
-            # through the shared Monitorbot conversation.
-            if daily_report_date_mismatch(latest_text, mode):
-                print(f"DAILY_DATE_MISMATCH_EXPECTED_YESTERDAY requested={requested_period}; report title indicates today. Database write skipped.")
-                return 22
-            # Create the daily artifact first, then request the card details and attach them
-            # before persisting the same report row to Supabase.
-            output = save_report(report, report_type, requested_period)
-            card_report = await finish_card_prompt(client, entity)
-            if card_report:
-                card_details = {
-                    "message_id": card_report.id,
-                    "message_date": card_report.date.astimezone(timezone.utc).isoformat() if card_report.date else None,
-                    "raw_text": card_report.message or "",
-                    "content_sha256": hashlib.sha256((card_report.message or "").encode("utf-8")).hexdigest(),
-                    "status": "needs_review",
-                }
-                # Card details can overlap with POS/TEF already represented in the daily total.
-                # Preserve the full response but do not add it to the total a second time.
-                raw_card_text = card_details["raw_text"]
-                totals, warnings = parse_totals(raw_card_text)
-                card_details["parsed_totals"] = totals
-                card_details["validation_warnings"] = warnings
-                card_details["note"] = "Captured separately from the daily total; validate overlap before aggregation."
-                report_data = json.loads(Path(output).read_text(encoding="utf-8"))
-                report_data["card_details"] = card_details
-                Path(output).write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
-            persist_to_supabase(output, report_type, requested_period, local_now)
-            print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} cards_requested=true card_details_saved={bool(card_report)}")
-            return 0
-
-        if ("ano atual" in combined and "ano anterior" in combined):
-            latest, year_replies = await send_choice(client, entity, latest, "Ano Atual", "select current year for October 2026")
-            if not year_replies:
-                return 9
-            replies.extend(year_replies)
-            combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
-        if "outubro" in combined and "selecione a opção desejada" in combined:
-            latest, month_replies = await send_choice(client, entity, latest, "Outubro", "select October 2026")
-            if not month_replies:
-                return 10
-            replies.extend(month_replies)
-        report = await wait_for_report(client, entity, mode, after_id=menu_id)
-        if not report:
-            report = next((m for m in reversed(replies) if matches_report(m.message, mode)), None)
-        if not report:
-            latest_now = await latest_incoming(client, entity)
-            if latest_now:
-                print(f"MONTHLY_REPORT_NOT_FOUND; current_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
-            return 11
-        output = save_report(report, report_type, requested_period)
-        persist_to_supabase(output, report_type, requested_period, local_now)
-        await finish_card_prompt(client, entity)
-        print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period}")
-        return 0
+        for report_type in modes:
+            try:
+                # Recover to a known menu between reports; one Telegram chat is shared, so collect serially.
+                now_msg = await latest_incoming(client, entity)
+                if now_msg and ("precisa se logar" in norm(now_msg.message).lower() or "precisa fazer login" in norm(now_msg.message).lower()):
+                    await ensure_bellabyte_login(client, entity, now_msg)
+                requested_period = report_target_period(report_type, local_now)
+                await collect_one_report(client, entity, report_type, requested_period, local_now)
+                succeeded.append(report_type)
+            except Exception as exc:
+                failed.append({"report_type": report_type, "error": str(exc)})
+                print(f"COLLECTION_FAILED report_type={report_type}: {type(exc).__name__}: {exc}")
+                # A failed navigation can leave the chat in an unknown state; attempt reset before next type.
+                try:
+                    latest_msg = await latest_incoming(client, entity)
+                    if latest_msg:
+                        await send_choice(client, entity, latest_msg, "0", "reset menu after failed report")
+                except Exception as reset_exc:
+                    print(f"MENU_RESET_FAILED after {report_type}: {type(reset_exc).__name__}")
+                    break
+        print("COLLECTION_SUMMARY=" + json.dumps({"succeeded": succeeded, "failed": failed}, ensure_ascii=False))
+        return 0 if not failed else 1
     finally:
         await client.disconnect()
 
