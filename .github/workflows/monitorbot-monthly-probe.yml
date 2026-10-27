@@ -44,6 +44,8 @@ jobs:
           python-version: "3.12"
       - name: Validate dashboard JavaScript syntax
         run: node scripts/validate_dashboard.mjs
+      - name: Install collector test dependency
+        run: python -m pip install --disable-pip-version-check "Telethon==1.45.0"
       - name: Validate collector Python syntax
         run: python -m py_compile telegram-bridge/capture_report.py tests/test_capture_report.py
       - name: Test parser and Telegram payload handling
