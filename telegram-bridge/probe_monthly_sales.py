@@ -75,6 +75,31 @@ async def main():
         if b: print("BUTTONS: " + " | ".join(b[:20]))
 
 
+        # The monthly report was delivered and the bot asks whether to show payment cards.
+        # Choose "Não" to finish this report flow and avoid leaving the conversation waiting.
+        if "deseja visualizar os cartões" in low or "deseja visualizar os cartoes" in low:
+            print("CARD_PROMPT_DETECTED: choosing Não to finish the report flow.")
+            # Capture the already-delivered monthly report from recent incoming history.
+            history = await client.get_messages(entity, limit=30)
+            reports = [m for m in history if not m.out and "venda acumulada do mês" in norm(m.message).lower()]
+            if reports:
+                report = max(reports, key=lambda m:m.id)
+                report_text = norm(report.message)
+                print("REPORT_CAPTURED: monthly sales report exists in Telegram history.")
+                print(f"REPORT_MESSAGE_ID={report.id}")
+                print("REPORT_TEXT_BEGIN")
+                print(report_text[:12000])
+                print("REPORT_TEXT_END")
+            else:
+                print("REPORT_NOT_FOUND_IN_RECENT_HISTORY: card prompt is current, but report message was not found.")
+            cur = await send_choice(client, entity, cur, "Não", "decline card details and finish report flow")
+            if cur:
+                print(f"STATE_AFTER_CARDS: {norm(cur.message)[:1200]!r}")
+                b = labels(cur)
+                if b: print("BUTTONS: " + " | ".join(b[:20]))
+            print("SAFE_STOP: no database writes performed.")
+            return 0
+
         # If this run starts directly at the month menu, continue from that state.
         button_text = " ".join(b).lower()
         if "selecione a opção desejada no teclado" in low and "outubro" in button_text:
