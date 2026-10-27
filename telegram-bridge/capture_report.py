@@ -4,8 +4,12 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sys
-from datetime import datetime, timezone
+import urllib.request
+import urllib.error
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from telethon import TelegramClient
 from telethon.sessions import StringSession
@@ -57,6 +61,105 @@ async def send_choice(client, entity, current, choice, reason):
         if labels:
             print("BUTTONS: " + " | ".join(labels[:25]))
     return replies[-1], replies
+
+def br_number(value):
+    return float(value.replace(".", "").replace(",", "."))
+
+def parse_totals(raw):
+    patterns = {
+        "dinheiro": r"Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pix": r"PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pos_credito": r"POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "pos_debito": r"POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "tef": r"TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "ticket_pagamento": r"TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "total": r"(?:Venda Total do dia|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+        "ticket_medio": r"Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})",
+    }
+    totals = {}
+    warnings = []
+    for key, pattern in patterns.items():
+        match = re.search(pattern, raw, re.IGNORECASE)
+        if match:
+            try:
+                totals[key] = round(br_number(match.group(1)), 2)
+            except ValueError:
+                warnings.append(f"Valor inválido: {key}")
+    coupons = re.search(r"Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)", raw, re.IGNORECASE)
+    if coupons:
+        totals["cupons"] = int(coupons.group(1).replace(".", ""))
+    if "total" not in totals:
+        warnings.append("Total de vendas não foi identificado.")
+    if "cupons" not in totals:
+        warnings.append("Quantidade de cupons não foi identificada.")
+    payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
+    if all(key in totals for key in payment_keys) and "total" in totals:
+        payment_sum = round(sum(totals[key] for key in payment_keys), 2)
+        totals["payment_methods_sum"] = payment_sum
+        totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
+        if abs(totals["payment_reconciliation_diff"]) > 0.02:
+            warnings.append("Soma dos meios de pagamento difere do total informado.")
+    totals["validation_warnings"] = warnings
+    return totals, warnings
+
+def persist_to_supabase(report_file, report_type, requested_period, queried_at):
+    base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not base_url or not service_key:
+        raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secret; refusing to discard captured report.")
+    report = json.loads(Path(report_file).read_text(encoding="utf-8"))
+    raw = report["raw_text"]
+    totals, warnings = parse_totals(raw)
+    if not totals.get("total") or not any(term in raw.lower() for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda acumulada do mês")):
+        raise RuntimeError("Report validation failed; database write was not attempted.")
+    branch = report.get("branch", "")
+    if report_type == "sale_day":
+        period_start = requested_period
+        period_end = requested_period
+        report_date = requested_period
+    else:
+        period_start = requested_period + "-01"
+        period_end = queried_at.date().isoformat()
+        report_date = None
+    notes = [
+        "Capturado automaticamente do Bellabyte; aguarda revisão semântica.",
+        "Relatório bruto preservado; status não será promovido automaticamente a validated.",
+    ] + warnings
+    row = {
+        "report_type": report_type,
+        "branch_name_raw": branch,
+        "period_start": period_start,
+        "period_end": period_end,
+        "report_date": report_date,
+        "source": "telegram_monitorbot",
+        "raw_text": raw,
+        "content_sha256": report["content_sha256"],
+        "status": "needs_review",
+        "validation_notes": notes,
+        "totals": totals,
+    }
+    body = json.dumps([row], ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url}/rest/v1/report_imports?on_conflict=content_sha256",
+        data=body,
+        method="POST",
+        headers={
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=ignore-duplicates,return=minimal",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            if response.status not in (200, 201, 204):
+                raise RuntimeError(f"Supabase returned HTTP {response.status}")
+            print(f"SUPABASE_IMPORT_HTTP={response.status}")
+            print(f"SUPABASE_IMPORT_HASH={report['content_sha256']}")
+            print(f"SUPABASE_STATUS=needs_review")
+    except urllib.error.HTTPError as exc:
+        # Do not print response body, which can contain business data.
+        raise RuntimeError(f"Supabase import failed with HTTP {exc.code}") from None
 
 def save_report(message, report_type, requested_period):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -159,7 +262,8 @@ async def main():
         print("INVALID_REPORT_MODE")
         return 2
     report_type = "sale_day" if mode == "daily_yesterday" else "monthly_sales"
-    requested_period = "2026-10-26" if mode == "daily_yesterday" else "2026-10"
+    local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else local_now.strftime("%Y-%m")
 
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
@@ -168,6 +272,9 @@ async def main():
         print("CONFIG_MISSING: required Telegram Actions secrets are missing.")
         return 3
 
+    if not os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip():
+        print("SUPABASE_SERVICE_ROLE_KEY_MISSING: add the secret before running a collector that persists data.")
+        return 12
     client = TelegramClient(StringSession(session), int(api_id), api_hash)
     try:
         await client.connect()
