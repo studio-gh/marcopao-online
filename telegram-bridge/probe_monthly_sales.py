@@ -37,15 +37,22 @@ async def wait_incoming(client, entity, before_id, seconds=12):
 async def send_choice(client, entity, current, choice, reason):
     print(f"ACTION: sending {choice!r} ({reason})")
     await client.send_message(entity, choice)
-    incoming = await wait_incoming(client, entity, current.id)
+    # Bot replies can arrive after a delay or in multiple messages. Wait longer,
+    # and poll for all incoming messages newer than the current state.
+    incoming = await wait_incoming(client, entity, current.id, seconds=30)
     if not incoming:
-        print("NO_BOT_REPLY: no incoming response after the choice.")
+        # Some bot versions may edit/attach the reply to a later update; show latest state.
+        latest = await latest_incoming(client, entity)
+        if latest and latest.id > current.id:
+            incoming = [latest]
+    if not incoming:
+        print("NO_BOT_REPLY: no incoming response after 30 seconds.")
         return None
     for m in incoming:
-        print(f"BOT_REPLY id={m.id} text={norm(m.message)[:500]!r}")
+        print(f"BOT_REPLY id={m.id} text={norm(m.message)[:1200]!r}")
         b = labels(m)
         if b: print("BUTTONS: " + " | ".join(b[:20]))
-    return await latest_incoming(client, entity)
+    return max(incoming, key=lambda m: m.id)
 
 async def main():
     api_id=os.environ.get("TELEGRAM_API_ID","").strip()
@@ -78,7 +85,26 @@ async def main():
             print(f"STATE_AFTER_MONTH: {text[:800]!r}")
             b = labels(cur)
             if b: print("BUTTONS: " + " | ".join(b[:20]))
-            print("SAFE_STOP: next state captured; no database writes performed.")
+            if not cur:
+                print("REPORT_CAPTURE_PENDING: sent October; reply may arrive later. Re-run to inspect latest bot state.")
+                return 0
+            # If report arrives, capture enough text to support parser work, but do not print secrets.
+            report_text = norm(cur.message)
+            if "venda acumulada" in report_text.lower() and "total" in report_text.lower():
+                print("REPORT_CAPTURED: monthly sales report received.")
+                print("REPORT_TEXT_BEGIN")
+                print(report_text[:12000])
+                print("REPORT_TEXT_END")
+                follow = await wait_incoming(client, entity, cur.id, seconds=8)
+                for m in follow:
+                    print(f"FOLLOWUP id={m.id} text={norm(m.message)[:1000]!r}")
+                    b2 = labels(m)
+                    if b2: print("FOLLOWUP_BUTTONS: " + " | ".join(b2[:20]))
+            else:
+                print(f"STATE_AFTER_MONTH: {report_text[:3000]!r}")
+                b2 = labels(cur)
+                if b2: print("BUTTONS: " + " | ".join(b2[:20]))
+            print("SAFE_STOP: no database writes performed.")
             return 0
 
         # Do not send arbitrary digits while the year-choice question is active.
