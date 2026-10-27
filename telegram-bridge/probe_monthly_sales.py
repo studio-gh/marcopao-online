@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Guided probe: select branch 1 if prompted, then report 2, and capture next prompt.
+"""Guided Bellabyte login + monthly sales prompt probe.
 
-This sends up to two expected menu choices to the bot. It does not select a
-period, request further steps, or write to Supabase.
+Uses BELLABYTE_PASSWORD only if the bot explicitly says a login is required.
+Never prints the password. Selects branch 1 and report 2 only when the
+observed conversation state matches the expected prompts. No period selection
+or Supabase writes occur.
 """
 import asyncio
 import os
@@ -50,6 +52,7 @@ async def main():
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
     session = os.environ.get("TELEGRAM_SESSION_STRING", "").strip()
+    password = os.environ.get("BELLABYTE_PASSWORD", "")
     if not all((api_id, api_hash, session)):
         print("CONFIG_MISSING: configure Telegram GitHub Actions secrets.")
         return 2
@@ -68,16 +71,38 @@ async def main():
 
         current = normalized(latest.message)
         print(f"CURRENT_STATE: {current[:300]!r}")
-        # If the bot currently asks for a branch, select branch 1 first.
+
+        # Bellabyte's own application login, not Telegram account authentication.
+        if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
+            if not password:
+                print("BELLABYTE_PASSWORD_MISSING: add the Bellabyte-only password as Actions secret BELLABYTE_PASSWORD.")
+                return 6
+            print("ACTION: sending Bellabyte password from Actions secret; value is never logged.")
+            before = latest.id
+            await client.send_message(entity, password)
+            new = await wait_for_new(client, entity, before, seconds=WAIT_SECONDS + 4)
+            if new:
+                await show_messages(new)
+            latest = await latest_message(client, entity)
+            current = normalized(latest.message if latest else "")
+            if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
+                print("LOGIN_NOT_ACCEPTED_OR_MORE_STEPS_REQUIRED: stopped without selecting a report.")
+                return 7
+
+        # If the bot asks for a branch, select the known branch.
         if "qual filial deseja se conectar" in current.lower():
             print("ACTION: selecting branch 1 (Marcopão Lanchonete e Panificação Ltda).")
             before = latest.id
             await client.send_message(entity, BRANCH_CHOICE)
             new = await wait_for_new(client, entity, before)
-            await show_messages(new)
+            if new:
+                await show_messages(new)
             latest = await latest_message(client, entity)
             current = normalized(latest.message if latest else "")
-        # Only send report choice if the latest bot state is a report menu.
+
+        if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
+            print("STOPPED: Bellabyte still requires login.")
+            return 7
         if "venda acumulada mês" not in current.lower() or "top 100" not in current.lower():
             print("STOPPED: latest state is not the expected report-selection menu; no report option sent.")
             return 5
