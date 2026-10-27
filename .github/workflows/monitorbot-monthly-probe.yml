@@ -1,9 +1,6 @@
 name: Marcopão report collector
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       report_mode:
@@ -19,6 +16,11 @@ on:
 
 permissions:
   contents: read
+
+# This collector controls one shared Telegram conversation. Never run two copies concurrently.
+concurrency:
+  group: marcopao-monitorbot-collector
+  cancel-in-progress: false
 
 jobs:
   collect-report:
