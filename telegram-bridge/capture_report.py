@@ -583,6 +583,7 @@ REPORT_MODES = {
     "products_by_group": "products_by_group",
 }
 REPORT_TYPE_TO_OPTION = {value: key for key, value in REPORT_OPTIONS.items()}
+# [collect-report:ticket_average] Reimport report 10 with paired product name, price and quantity parsing.
 # [collect-report:products_by_group] Retry report 13 with branch-menu recovery fixed.
 # [collect-report:products_by_group] Reimport report 13 after structured revenue, inventory and cost parsing fixes.
 # [collect-report] Re-run serialized collection after ticket-average and report-13 navigation fixes.
