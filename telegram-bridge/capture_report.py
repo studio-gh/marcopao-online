@@ -195,7 +195,9 @@ def parse_report_data(report_type, raw):
             if abs(totals["payment_reconciliation_diff"]) > 0.02:
                 warnings.append("Soma dos meios de pagamento difere do total informado.")
     else:
-        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        # Some Bellabyte responses place all ranked items on one line. Split before each rank marker.
+        expanded_raw = re.sub(r"\s+(?=\d+\s*:\s+\S)", "\n", raw)
+        lines = [line.strip() for line in expanded_raw.splitlines() if line.strip()]
         entries = []
         # Bellabyte ranks are block-structured: "1: PRODUCT", then Total/Quantidade/Preço lines.
         blocks = []
@@ -212,17 +214,17 @@ def parse_report_data(report_type, raw):
             blocks.append(current)
 
         def parse_quantity(block_text):
-            match = re.search(r"Quantidade\s*:\s*([\d.]+(?:,\d+)?)\s*(kg|un(?:idade)?s?|pct|pacotes?)\b", block_text, re.IGNORECASE)
+            match = re.search(r"Quantidade\s*:\s*([\d.]+(?:,\d+)?)(?:\s*(kg|un(?:idade)?s?|pct|pacotes?))?\b", block_text, re.IGNORECASE)
             if not match:
                 return None, None
             try:
                 quantity = float(match.group(1).replace(".", "").replace(",", "."))
             except ValueError:
                 return None, None
-            unit = match.group(2).lower()
+            unit = (match.group(2) or "").lower()
             if unit.startswith("un"):
                 unit = "un"
-            return quantity, unit
+            return quantity, (unit or None)
 
         def parse_price(block_text, patterns):
             for pattern in patterns:
