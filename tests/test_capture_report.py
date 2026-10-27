@@ -269,6 +269,8 @@ Custo:R$ 9,99"""
         self.assertEqual(totals["entries"][0]["name"], "PAO FRANCES")
         self.assertEqual(totals["entries"][0]["value"], 43448.76)
         self.assertEqual(totals["entries"][0]["stock"], -163293.062)
+        self.assertEqual(totals["entries"][0]["stock_validation"], "suspect_negative")
+        self.assertTrue(any("Estoque negativo" in warning for warning in warnings))
         self.assertEqual(totals["entries"][0]["cost"], 9.99)
 
     def test_group_report_extracts_name_and_average(self):
