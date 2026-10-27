@@ -194,9 +194,8 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         totals["card_details"] = card_details
         notes.append("Detalhes de cartão capturados separadamente. Não somar novamente ao total sem confirmar sobreposição.")
 
-    # Stable identity for a business-day snapshot: new captures of the same report/day update one row.
-    identity = f"{report_type}|{branch}|{period_start}|{period_end}"
-    identity_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+    # Stable identity for a report snapshot: repeated pulls of the same type/branch/period update one row.
+    identity_hash = stable_report_identity(report_type, branch, period_start, period_end)
     row = {
         "report_type": report_type,
         "branch_id": None,
