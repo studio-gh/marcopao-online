@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from types import SimpleNamespace
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("capture_report", ROOT / "telegram-bridge" / "capture_report.py")
@@ -15,6 +16,7 @@ daily_report_date_mismatch = MODULE.daily_report_date_mismatch
 report_type_for_option = MODULE.report_type_for_option
 monthly_period = MODULE.monthly_period
 stable_report_identity = MODULE.stable_report_identity
+find_report_payload = MODULE.find_report_payload
 
 
 
@@ -168,6 +170,46 @@ Ticket Médio: 16,53
         self.assertEqual(totals["entries"][0]["name"], "Pão francês")
         self.assertTrue(matches_report_type("Top 100 Valor\nPão francês R$ 41600,11", "top_value"))
         self.assertFalse(matches_report_type("Venda Acumulada do Mês\nTotal: R$ 207977,18", "top_value"))
+
+    def fake_message(self, text, labels=(), message_id=1):
+        button_rows = []
+        if labels:
+            button_rows = [SimpleNamespace(buttons=[SimpleNamespace(text=value) for value in labels])]
+        markup = SimpleNamespace(rows=button_rows)
+        return SimpleNamespace(message=text, reply_markup=markup, id=message_id)
+
+    def test_report_payload_joins_multiple_telegram_chunks(self):
+        messages = [
+            self.fake_message("Selecione o mês", ("Outubro",), 1),
+            self.fake_message("Top 100 Valor Acumulada do Mês de Outubro\\n1: PAO FRANCES\\nTotal R$: 43261,02", (), 2),
+            self.fake_message("2: PAO DE QUEIJO\\nTotal R$: 10411,11", (), 3),
+            self.fake_message("Bem vindo Relatório Bellabyte", ("1", "2", "3"), 4),
+        ]
+        report, raw = find_report_payload(messages, "top_value")
+        self.assertEqual(report.id, 2)
+        self.assertIn("PAO FRANCES", raw)
+        self.assertIn("PAO DE QUEIJO", raw)
+        self.assertNotIn("Bem vindo", raw)
+
+    def test_report_payload_skips_ticket_average_group_selector_prompt(self):
+        messages = [
+            self.fake_message("Ticket Medio Preço Vendas por quantidade", ("Todos", "PADARIA", "BEBIDAS"), 1),
+            self.fake_message("Ticket Medio Preço Vendas por quantidade\\nPAO FRANCES\\nPreço Médio:R$24,99", ("1", "2"), 2),
+        ]
+        report, raw = find_report_payload(messages, "ticket_average")
+        self.assertEqual(report.id, 2)
+        self.assertIn("24,99", raw)
+
+    def test_report_payload_combines_group_heading_and_body(self):
+        messages = [
+            self.fake_message("Vendas por grupoAcumulada do Mês de Outubro Filial: MARCOPAO", ("1", "2", "3"), 1),
+            self.fake_message("PADARIA\\nTotal R$: 80000,00\\nLANCHONETE\\nTotal R$: 40000,00", ("1", "2", "3"), 2),
+        ]
+        report, raw = find_report_payload(messages, "sales_by_group")
+        self.assertEqual(report.id, 1)
+        self.assertIn("PADARIA", raw)
+        self.assertIn("80000,00", raw)
+        self.assertIn("40000,00", raw)
 
     def test_actual_bellabyte_top_value_blocks(self):
         raw = """Top 100 Valor Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA
