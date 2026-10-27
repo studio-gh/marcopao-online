@@ -360,16 +360,20 @@ async def finish_card_prompt(client, entity):
     latest = await latest_incoming(client, entity)
     if latest and ("deseja visualizar os cartões" in norm(latest.message).lower()
                    or "deseja visualizar os cartoes" in norm(latest.message).lower()):
-        latest, replies = await send_choice(
+        _, replies = await send_choice(
             client, entity, latest, "Sim", "request card transaction details for complete sales totals"
         )
         if not replies:
             raise RuntimeError("Monitorbot did not return the requested card details.")
-        latest = await latest_incoming(client, entity) or latest
-        if not is_report_body(latest.message) and not any(is_report_body(m.message) for m in replies):
+        card_report = next((m for m in reversed(replies) if is_report_body(m.message)), None)
+        if card_report is None:
+            latest_now = await latest_incoming(client, entity)
+            if latest_now and is_report_body(latest_now.message):
+                card_report = latest_now
+        if card_report is None:
             print("CARD_DETAILS_RESPONSE_NOT_RECOGNIZED")
         else:
-            print("CARD_DETAILS_CAPTURED: card detail prompt was answered with Sim.")
+            print(f"CARD_DETAILS_CAPTURED message_id={card_report.id}; review card totals before combining with daily total.")
 
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
