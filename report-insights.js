@@ -47,7 +47,7 @@ function table(headers,rows){document.getElementById('structuredThead').innerHTM
 function kpi(label,value,note){return {label,value,note};}
 window.renderStructuredReport=function(type){
  activeStructuredType=type;
- const rec=window.structuredReports?.[type]||{},all=Array.isArray(rec.entries)?rec.entries:[],query=(document.getElementById('searchFilter').value||'').trim().toLocaleLowerCase('pt-BR');
+ const rec=window.structuredReports?.[type]||{},pending=window.pendingStructuredReports?.[type]||null,all=Array.isArray(rec.entries)?rec.entries:[],query=(document.getElementById('searchFilter').value||'').trim().toLocaleLowerCase('pt-BR');
  ensureStructuredFilters(type);
  const categoryFilter=document.getElementById('structuredCategoryFilter')?.value||'';
  const unitFilter=document.getElementById('structuredUnitFilter')?.value||'';
@@ -62,12 +62,16 @@ window.renderStructuredReport=function(type){
  document.getElementById('structuredRaw').textContent=rec.rawText||all.map(x=>x.raw||x.name||'').join('\n\n');
  let cards=[],chart='',head=[],body='',insight='';
  if(!all.length){
-  document.getElementById('structuredTitle').textContent='Relatório sem dados estruturados';
-  kpis([kpi('Linhas importadas','0','Nenhum item disponível')]);
-  document.getElementById('structuredInsight').innerHTML='<strong>Sem dados</strong><span>Este relatório ainda não possui linhas estruturadas. Nenhum número de exemplo será apresentado.</span>';
+  const pendingLabel=pending?'Importação recebida, mas ainda não validada.':'Nenhuma importação disponível.';
+  document.getElementById('structuredTitle').textContent=pending?'Relatório aguardando validação':'Relatório sem dados estruturados';
+  document.getElementById('structuredStatus').textContent=pending?'BLOQUEADO · '+String(pending.status||'needs_review').toUpperCase():'SEM DADOS';
+  document.getElementById('structuredSubtitle').textContent=pending?(pending.periodStart&&pending.periodEnd?'Período '+pending.periodStart+' a '+pending.periodEnd:'Período não confirmado')+' · '+(pending.branch||'Filial não identificada'):'';
+  kpis([kpi('Linhas liberadas','0',pendingLabel)]);
+  document.getElementById('structuredInsight').innerHTML=pending?'<strong>Bloqueado para uso operacional</strong><span>Este relatório foi importado, mas não passou pela validação. Os números foram ocultados até a conferência de origem, unidades, consistência e completude.</span>':'<strong>Sem dados</strong><span>Este relatório ainda não possui linhas estruturadas. Nenhum número de exemplo será apresentado.</span>';
   document.getElementById('structuredChart').innerHTML='';
-  table(['Relatório'],'<tr><td><div class="structured-empty">Nenhum dado importado.</div></td></tr>');
-  document.getElementById('structuredFoot').textContent='Sem dados para análise.';return;
+  table(['Relatório'],'<tr><td><div class="structured-empty">'+esc(pendingLabel)+' Não exibimos valores de relatórios pendentes.</div></td></tr>');
+  document.getElementById('structuredRaw').textContent='';
+  document.getElementById('structuredFoot').textContent=pending?'Status '+String(pending.status||'needs_review')+' · Importado em '+(pending.importedAt||'data não registrada')+'. Dados ocultados até validação.':'Sem dados para análise.';return;
  }
  if(type==='top-value'){
   const items=rows.filter(x=>x.name&&hasNum(x.value)).sort((a,b)=>Number(b.value)-Number(a.value));
