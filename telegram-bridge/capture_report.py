@@ -268,7 +268,7 @@ def parse_report_data(report_type, raw):
         entries = []
         pending_name = None
         price_qty_pattern = re.compile(
-            r"R\\$\\s*:?\\s*([\\d.]+,\\d{2})\\s*,?\\s*Qtd\\s*:?\\s*([\\d.]+(?:,\\d+)?)\\s*(kg|un|unidade|unidades|pct)?",
+            r"R\$\s*:?\s*([\d.]+,\d{2})\s*,?\s*Qtd\s*:?\s*([\d.]+(?:,\d+)?)\s*(kg|un|unidade|unidades|pct)?",
             re.IGNORECASE
         )
         for line in lines:
@@ -355,11 +355,10 @@ def parse_report_data(report_type, raw):
                 entry["quantity"] = quantity
                 entry["unit"] = unit
             revenue = parse_price(block_text, [
-                r"Total\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
-                r"Faturamento\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
-                r"Valor Total\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
-            ])
-            if revenue is not None:
+                r"Total\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                r"Faturamento\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                r"Valor Total\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
+            ])            if revenue is not None:
                 entry["value"] = revenue
             unit_price = parse_price(block_text, [
                 r"Preço\s*M[eé]dio(?:\s+Venda)?\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
@@ -370,7 +369,7 @@ def parse_report_data(report_type, raw):
                 entry["unit_price"] = unit_price
                 if report_type == "sales_by_group":
                     entry["average"] = unit_price
-            stock_match = re.search(r"Estoque\\s*:?\\s*(-?[\\d.]+(?:,\\d+)?)(?:\\s*(kg|un(?:idade)?s?))?", block_text, re.IGNORECASE)
+            stock_match = re.search(r"Estoque\s*:?\s*(-?[\d.]+(?:,\d+)?)(?:\s*(kg|un(?:idade)?s?))?", block_text, re.IGNORECASE)
             if stock_match:
                 try:
                     entry["stock"] = float(stock_match.group(1).replace(".", "").replace(",", "."))
@@ -381,7 +380,7 @@ def parse_report_data(report_type, raw):
                     entry["stock_unit"] = "un"
                 elif stock_unit:
                     entry["stock_unit"] = stock_unit
-            cost_match = re.search(r"Custo\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})", block_text, re.IGNORECASE)
+            cost_match = re.search(r"Custo\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})", block_text, re.IGNORECASE)
             if cost_match:
                 try:
                     entry["cost"] = round(br_number(cost_match.group(1)), 2)
