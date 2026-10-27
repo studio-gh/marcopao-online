@@ -510,7 +510,7 @@ def matches_report_type(text, report_type):
 
 def report_message_has_data(text):
     return bool(re.search(
-        r"R\$\s*[\d.]+,\d{2}|Quantidade\s*:|Preço\s*:|Preço\s+(?:Atual|M[eé]dio)|^\s*\d+\s*:\s+\S",
+        r"R\$\s*:?\s*[\d.]+,\d{2}|Quantidade\s*:|Preço\s*:|Preço\s+(?:Atual|M[eé]dio)|^\s*\d+\s*:\s+\S",
         text or "", re.IGNORECASE | re.MULTILINE
     ))
 
