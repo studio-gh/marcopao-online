@@ -216,9 +216,11 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         # Do not print response body, which can contain business data.
         raise RuntimeError(f"Supabase import failed with HTTP {exc.code}") from None
 
-def save_report(message, report_type, requested_period):
+def save_report(message, report_type, requested_period, raw_text=None):
+    """Persist a Telegram message or an explicitly supplied card-detail text as a protected artifact."""
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    raw = message.message or ""
+    raw = raw_text if raw_text is not None else (message.message or "")
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     payload = {
         "source": "telegram_monitorbot",
