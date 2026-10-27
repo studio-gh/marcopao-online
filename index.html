@@ -664,6 +664,7 @@ async function refreshDailyRows() {
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
     setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s), ' + monthlyCount + ' mensal(is). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
+    if (document.getElementById('reportType')?.value === 'sale-month') window.setSupabaseReports(rows);
     return true;
   } catch (error) {
     console.error('Marcopão: falha ao consultar Supabase', error);
