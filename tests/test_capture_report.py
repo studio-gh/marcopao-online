@@ -240,6 +240,37 @@ Ticket Médio: 16,53
         self.assertEqual(totals["entries"][99]["name"], "PRODUTO 100")
         self.assertFalse(any("Ranking incompleto" in warning for warning in warnings))
 
+    def test_ticket_average_pairs_names_with_price_quantity_lines(self):
+        raw = """Ticket Preço venda Acumulada do Mês de Outubro Filial: MARCOPAO
+
+ACUCAR UNIAO 1 KG
+R$:6,90, Qtd:12UN
+
+ADES 200 ML
+R$:4,00, Qtd:4UN"""
+        totals, warnings = parse_report_data("ticket_average", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertEqual(totals["entries"][0]["name"], "ACUCAR UNIAO 1 KG")
+        self.assertEqual(totals["entries"][0]["unit_price"], 6.90)
+        self.assertEqual(totals["entries"][0]["quantity"], 12)
+        self.assertEqual(totals["entries"][1]["name"], "ADES 200 ML")
+        self.assertEqual(totals["entries"][1]["unit_price"], 4.00)
+
+    def test_products_by_group_parses_revenue_stock_and_cost(self):
+        raw = """Vendas produtos por grupo Todos Filial: MARCOPAO
+1: PAO FRANCES
+Quantidade: 1738,609 KG
+Preço:R$24,99
+Total:R$ 43448,76
+Estoque: -163293,062 KG
+Custo:R$ 9,99"""
+        totals, warnings = parse_report_data("products_by_group", raw)
+        self.assertEqual(totals["entry_count"], 1)
+        self.assertEqual(totals["entries"][0]["name"], "PAO FRANCES")
+        self.assertEqual(totals["entries"][0]["value"], 43448.76)
+        self.assertEqual(totals["entries"][0]["stock"], -163293.062)
+        self.assertEqual(totals["entries"][0]["cost"], 9.99)
+
     def test_group_report_extracts_name_and_average(self):
         raw = "Vendas por grupo Acumulada do Mês de Outubro\\n1: PADARIA Total R$: 87739,20 Quantidade: 7600,325 Preço Médio Venda R$: 11,54 2: LANCHONETE Total R$: 37169,57 Quantidade: 4794,730 Preço Médio Venda R$: 7,75"
         totals, warnings = parse_report_data("sales_by_group", raw)
