@@ -261,6 +261,43 @@ def parse_report_data(report_type, raw):
         totals["raw_line_count"] = len(raw.splitlines())
         if not entries:
             warnings.append("Formato do relatório de preço/quantidade não reconhecido; conteúdo bruto preservado para revisão.")
+    elif report_type == "ticket_average":
+        # Report 10 alternates a product name with "R$:6,90, Qtd:12UN".
+        # Pair adjacent lines so the quantity/price line is not mistaken for a product.
+        lines = [line.strip() for line in raw.replace("\\r", "\\n").splitlines() if line.strip()]
+        entries = []
+        pending_name = None
+        price_qty_pattern = re.compile(
+            r"R\\$\\s*:?\\s*([\\d.]+,\\d{2})\\s*,?\\s*Qtd\\s*:?\\s*([\\d.]+(?:,\\d+)?)\\s*(kg|un|unidade|unidades|pct)?",
+            re.IGNORECASE
+        )
+        for line in lines:
+            if report_title_match(line, report_type) or "filial:" in line.lower() or line.lower().startswith("ticket preço") or line.lower().startswith("ticket medio"):
+                continue
+            match = price_qty_pattern.search(line)
+            if match:
+                price_value = round(br_number(match.group(1)), 2)
+                quantity_value = float(match.group(2).replace(".", "").replace(",", "."))
+                unit = (match.group(3) or "").lower()
+                if unit.startswith("un"):
+                    unit = "un"
+                if pending_name:
+                    entries.append({
+                        "rank": len(entries) + 1,
+                        "name": pending_name,
+                        "raw": pending_name + "\\n" + line,
+                        "unit_price": price_value,
+                        "quantity": quantity_value,
+                        "unit": unit or None,
+                    })
+                pending_name = None
+            elif not re.match(r"^R\\$|^Qtd\\b", line, re.IGNORECASE):
+                pending_name = line
+        totals["entries"] = entries
+        totals["entry_count"] = len(entries)
+        totals["raw_line_count"] = len(lines)
+        if not entries:
+            warnings.append("Formato do relatório 10 não reconhecido; conteúdo bruto preservado para revisão.")
     else:
         # Bellabyte often sends 30 ranked rows per Telegram message on a single line.
         # Split on every rank marker, even when a message chunk was joined with literal spaces.
@@ -318,9 +355,9 @@ def parse_report_data(report_type, raw):
                 entry["quantity"] = quantity
                 entry["unit"] = unit
             revenue = parse_price(block_text, [
-                r"Total\s*R\$\s*:?\s*([\d.]+,\d{2})",
-                r"Faturamento\s*:?\s*R\$\s*([\d.]+,\d{2})",
-                r"Valor Total\s*:?\s*R\$\s*([\d.]+,\d{2})",
+                r"Total\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
+                r"Faturamento\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
+                r"Valor Total\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})",
             ])
             if revenue is not None:
                 entry["value"] = revenue
@@ -333,6 +370,23 @@ def parse_report_data(report_type, raw):
                 entry["unit_price"] = unit_price
                 if report_type == "sales_by_group":
                     entry["average"] = unit_price
+            stock_match = re.search(r"Estoque\\s*:?\\s*(-?[\\d.]+(?:,\\d+)?)(?:\\s*(kg|un(?:idade)?s?))?", block_text, re.IGNORECASE)
+            if stock_match:
+                try:
+                    entry["stock"] = float(stock_match.group(1).replace(".", "").replace(",", "."))
+                except ValueError:
+                    pass
+                stock_unit = (stock_match.group(2) or "").lower()
+                if stock_unit.startswith("un"):
+                    entry["stock_unit"] = "un"
+                elif stock_unit:
+                    entry["stock_unit"] = stock_unit
+            cost_match = re.search(r"Custo\\s*:?\\s*R\\$\\s*:?\\s*([\\d.]+,\\d{2})", block_text, re.IGNORECASE)
+            if cost_match:
+                try:
+                    entry["cost"] = round(br_number(cost_match.group(1)), 2)
+                except ValueError:
+                    pass
             entries.append(entry)
 
         # Fallback for report variants where a product row and its metrics share one line.
