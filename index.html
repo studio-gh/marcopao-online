@@ -658,7 +658,10 @@ async function refreshDailyRows() {
     if (accessError) throw accessError;
     if (!accessRow) {
       if (authPanel) authPanel.style.display = 'block';
-      setStatus('Conta autenticada, mas sem permissão em dashboard_access. Peça ao administrador para liberar este usuário.');
+      const note = document.getElementById('authNote');
+      const uidMessage = 'UID autenticado: ' + user.id + '. Esta conta ainda não está liberada em dashboard_access.';
+      if (note) note.textContent = uidMessage + ' Copie este UID e envie ao administrador para liberar o acesso.';
+      setStatus(uidMessage + ' Nenhum dado foi exposto; a consulta segue bloqueada pela regra de segurança.');
       return false;
     }
     const {data, error} = await sb
