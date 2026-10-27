@@ -485,6 +485,7 @@ def parse_totals(raw):
     return totals, warnings
 
 def persist_to_supabase(report_file, report_type, requested_period, queried_at):
+    """Persist a new Telegram snapshot, make it canonical, and supersede prior snapshots in the same scope."""
     base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     if not base_url or not service_key:
@@ -497,9 +498,12 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         raise RuntimeError(f"Report validation failed; database write was not attempted: {exc}") from None
     branch = report.get("branch", BRANCH)
     period_start, period_end, report_date = report_period(report_type, queried_at, requested_period)
+    captured_at = report.get("message_date") or report.get("captured_at") or datetime.now(timezone.utc).isoformat()
+    content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     notes = [
-        f"Captured report type={report_type}; needs human review.",
+        "Canonical snapshot selected by policy: newest successfully captured Telegram report for this report type, branch and period.",
+        "Any previous snapshot in the same scope is marked superseded; its historical record is preserved.",
         "Original Telegram text preserved in protected report_imports row.",
     ] + warnings
     card_details = report.get("card_details")
@@ -507,7 +511,6 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         totals["card_details"] = card_details
         notes.append("Card breakdown captured separately; do not add twice without confirming overlap.")
 
-    identity_hash = stable_report_identity(report_type, branch, period_start, period_end)
     row = {
         "report_type": report_type,
         "branch_id": None,
@@ -517,9 +520,9 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         "report_date": report_date,
         "source": "telegram_monitorbot",
         "raw_text": raw,
-        "imported_at": report.get("captured_at") or datetime.now(timezone.utc).isoformat(),
-        "content_sha256": identity_hash,
-        "status": "needs_review",
+        "imported_at": captured_at,
+        "content_sha256": content_hash,
+        "status": "validated",
         "validation_notes": notes,
         "totals": totals,
     }
@@ -532,18 +535,54 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=minimal",
+            "Prefer": "resolution=merge-duplicates,return=representation",
         },
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
+            response_body = response.read().decode("utf-8")
             if response.status not in (200, 201, 204):
                 raise RuntimeError(f"Supabase returned HTTP {response.status}")
             print(f"SUPABASE_IMPORT_HTTP={response.status}")
-            print(f"SUPABASE_IMPORT_IDENTITY_HASH={identity_hash}")
-            print(f"SUPABASE_STATUS=needs_review")
+            result = json.loads(response_body) if response_body.strip() else []
+            if not result or not result[0].get("id"):
+                raise RuntimeError("Supabase did not return the canonical report row id; refusing to supersede history.")
+            current_id = result[0]["id"]
+            print(f"SUPABASE_IMPORT_ID={current_id}")
+            print("SUPABASE_STATUS=validated_latest_wins")
+
+        # Only supersede rows in the exact same report scope. Other dates, report types,
+        # branches and periods remain untouched. The latest raw snapshot remains in history.
+        from urllib.parse import urlencode
+        filters = {
+            "report_type": f"eq.{report_type}",
+            "branch_name_raw": f"eq.{branch}",
+            "period_start": f"eq.{period_start}",
+            "period_end": f"eq.{period_end}",
+            "id": f"neq.{current_id}",
+            "status": "neq.rejected",
+        }
+        query = urlencode(filters, safe=".,")
+        supersede_request = urllib.request.Request(
+            f"{base_url}/rest/v1/report_imports?{query}",
+            data=json.dumps({
+                "status": "superseded",
+                "validation_notes": ["Superseded by a newer Telegram snapshot in the same report scope; retained for audit history."],
+            }, ensure_ascii=False).encode("utf-8"),
+            method="PATCH",
+            headers={
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+        )
+        with urllib.request.urlopen(supersede_request, timeout=30) as response:
+            if response.status not in (200, 204):
+                raise RuntimeError(f"Supabase supersede update returned HTTP {response.status}")
+            print("SUPABASE_PRIOR_SNAPSHOTS=superseded")
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Supabase import failed with HTTP {exc.code}") from None
+        raise RuntimeError(f"Supabase import/supersede failed with HTTP {exc.code}") from None
 
 def save_report(message, report_type, requested_period, raw_text=None):
     """Persist a Telegram message or an explicitly supplied card-detail text as a protected artifact."""
