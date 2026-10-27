@@ -331,18 +331,18 @@ function reportDay(text, fallback){
   return m?m[3]+"-"+m[2]+"-"+m[1]:"";
 }
 function parseDayMetrics(text){
- const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
- const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\\./g,""),10):null};
+ const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\./g,"").replace(",", ".")):null};
+ const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\./g,""),10):null};
  return {
-  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  cash:moneyMatch(/Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  pix:moneyMatch(/PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  posCredit:moneyMatch(/POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  posDebit:moneyMatch(/POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  tef:moneyMatch(/TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  coupons:intMatch(/Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)/i),
-  ticket:moneyMatch(/Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
-  branch:((text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]||"").split(/\\r?\\n/)[0].trim()
+  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  cash:moneyMatch(/Dinheiro\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  pix:moneyMatch(/PIX\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  posCredit:moneyMatch(/POS Crédito\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  posDebit:moneyMatch(/POS Débito\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  tef:moneyMatch(/TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  coupons:intMatch(/Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)/i),
+  ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
  };
 }
 function renderDailyComparison(){
