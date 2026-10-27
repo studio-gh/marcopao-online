@@ -198,6 +198,7 @@ def parse_report_data(report_type, raw):
                 warnings.append("Soma dos meios de pagamento difere do total informado.")
     elif report_type == "ticket_average":
         # Report 10 is a two-line-per-product listing: product name, then price and quantity.
+        # [collect-report:ticket_average] Refresh report 10 after its parser correction.
         # Some products have multiple price/quantity rows followed by P.M (average) and Q.T (total quantity).
         entries = []
         blocks = re.split(r"\n\s*\n+", raw.strip())
