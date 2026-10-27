@@ -258,6 +258,11 @@ def is_main_menu(text):
     low = norm(text).lower()
     return "venda do dia" in low and "venda acumulada mês" in low and "top 100" in low
 
+def daily_report_date_mismatch(text, mode):
+    """Detect the known dangerous case: 'today' sales returned when yesterday was requested."""
+    return mode == "daily_yesterday" and "venda de hoje" in norm(text).lower()
+
+
 def matches_report(text, mode):
     low = norm(text).lower()
     if mode == "daily_yesterday":
@@ -560,7 +565,7 @@ async def main():
             # This collector requests the previous day. Never store a report titled "Venda de Hoje"
             # under yesterday's date; such a mismatch used to happen when simultaneous runs raced
             # through the shared Monitorbot conversation.
-            if mode == "daily_yesterday" and re.search(r"\\bvenda de hoje\\b", latest_text):
+            if daily_report_date_mismatch(latest_text, mode):
                 print(f"DAILY_DATE_MISMATCH_EXPECTED_YESTERDAY requested={requested_period}; report title indicates today. Database write skipped.")
                 return 22
             # Create the daily artifact first, then request the card details and attach them
