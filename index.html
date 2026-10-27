@@ -516,23 +516,42 @@ const SUPABASE_URL = 'https://aeikehzlsdyklcvgjouz.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_2aYNa7OL_jLOfkMCO9Co-g_VyXWN4C8';
 const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-async function refreshDailyRows(){
-  const {data, error} = await sb
-    .from('dashboard_daily_reports')
-    .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
-    .order('report_date',{ascending:true})
-    .limit(200);
-  if(error){
-    document.getElementById('filterStatus').textContent = 'Não foi possível carregar os relatórios. Atualize a página ou tente novamente mais tarde.';
-    return;
-  }
-  window.setSupabaseDailyReports(data||[]);
-  const count=(data||[]).length;
-  document.getElementById('filterStatus').textContent = count
-    ? count+' relatório(s) diário(s) carregado(s). Registros pendentes de conferência estão identificados.'
-    : 'Nenhum relatório diário foi importado no banco. A comparação aparecerá quando houver dois dias consecutivos.';
+function setStatus(message, isError=false) {
+  const el = document.getElementById('filterStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? '#a33b2d' : '';
 }
-document.getElementById('refreshDashboard').addEventListener('click', refreshDailyRows);
+
+async function refreshDailyRows() {
+  const button = document.getElementById('refreshDashboard');
+  if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
+  setStatus('Consultando os relatórios mais recentes no Supabase…');
+  try {
+    const {data, error} = await sb
+      .from('dashboard_daily_reports')
+      .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
+      .order('report_date', {ascending:false})
+      .limit(200);
+    if (error) throw error;
+    window.setSupabaseDailyReports(data || []);
+    const count = (data || []).length;
+    setStatus(count
+      ? count + ' relatório(s) diário(s) carregado(s) do Supabase. Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.'
+      : 'Consulta concluída: não há relatórios diários importados no Supabase. Este botão recarrega dados gravados; a coleta automática precisa ser executada separadamente.');
+    return true;
+  } catch (error) {
+    console.error('Marcopão: falha ao consultar Supabase', error);
+    setStatus('Erro ao consultar o Supabase: ' + (error?.message || 'erro desconhecido') + '.', true);
+    return false;
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Atualizar dados'; }
+  }
+}
+document.getElementById('refreshDashboard')?.addEventListener('click', refreshDailyRows);
+document.getElementById('importBtn')?.addEventListener('click', () => {
+  setStatus('A importação manual abre um formulário para colar o texto recebido do Monitorbot. Ela não inicia a coleta automática.');
+});
 await refreshDailyRows();
 </script>
 
