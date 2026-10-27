@@ -557,6 +557,12 @@ async def main():
                     or not any(marker in latest_text for marker in ("venda total do dia", "venda do dia", "venda de ontem", "venda de hoje", "total de vendas nos pdvs"))):
                 print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
                 return 17
+            # This collector requests the previous day. Never store a report titled "Venda de Hoje"
+            # under yesterday's date; such a mismatch used to happen when simultaneous runs raced
+            # through the shared Monitorbot conversation.
+            if mode == "daily_yesterday" and re.search(r"\\bvenda de hoje\\b", latest_text):
+                print(f"DAILY_DATE_MISMATCH_EXPECTED_YESTERDAY requested={requested_period}; report title indicates today. Database write skipped.")
+                return 22
             # Card detail response is part of every daily capture. Pull it before persisting so
             # the daily record and its review metadata are written together in Supabase.
             card_report = await finish_card_prompt(client, entity)
