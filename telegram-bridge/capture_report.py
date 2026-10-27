@@ -474,10 +474,13 @@ async def main():
                         latest = await latest_incoming(client, entity) or latest
                         prompt = norm(latest.message).lower()
                         visible = [label.strip().lower() for label in buttons(latest)]
-                # Do not proceed unless the result is an explicit daily report, not a stale prompt.
-                if not matches_report(latest.message, mode):
+                # The bot's daily result arrives with an optional "Deseja visualizar os cartões?" prompt.
+                # In this flow the actual report is the preceding reply, not that follow-up prompt.
+                report_candidate = next((m for m in reversed(replies2) if matches_report(m.message, mode)), None)
+                if report_candidate is None:
                     print(f"HISTORICAL_DAILY_SELECTION_INCOMPLETE prompt={safe_preview(latest.message)}; refusing to persist an incorrectly dated report.")
                     return 20
+                latest = report_candidate
                 latest_text = norm(latest.message).lower()
                 explicit_dates = re.search(r"(?:data|referência|período)\\s*:?\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{2}/\\d{2}/\\d{4})", latest.message, re.I)
                 if explicit_dates:
