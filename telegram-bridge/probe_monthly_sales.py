@@ -77,7 +77,15 @@ async def main():
             print(f"STATE_AFTER_YEAR: {text[:500]!r}")
             b = labels(cur)
             if b: print("BUTTONS: " + " | ".join(b[:20]))
-            print("SAFE_STOP: captured next state only; no report or period guessed.")
+            # We explicitly want October 2026 for the first test. Choose the exact displayed label.
+            if "selecione a opção desejada no teclado" in low and "outubro" in " ".join(b).lower():
+                cur = await send_choice(client, entity, cur, "Outubro", "select October 2026 for the monthly-sales test")
+                if not cur: return 8
+                text = norm(cur.message); low = text.lower()
+                print(f"STATE_AFTER_MONTH: {text[:800]!r}")
+                b = labels(cur)
+                if b: print("BUTTONS: " + " | ".join(b[:20]))
+            print("SAFE_STOP: captured report response; no database writes performed.")
             return 0
 
         # Recover only if the daily-sales submenu is explicitly current.
