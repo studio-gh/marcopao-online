@@ -417,6 +417,11 @@ async def main():
                     if any(marker in latest_text for marker in ("venda do dia", "venda de hoje", "venda de ontem")) and ("total" in latest_text or "cupons" in latest_text):
                         print(f"DAILY_REPORT_NOT_FOUND; latest_prompt={safe_preview(latest_now.message)}; buttons={buttons(latest_now)!r}")
                 return 8
+            latest_text = norm(report.message).lower()
+            if ("venda acumulada do mês" in latest_text
+                    or not any(marker in latest_text for marker in ("venda total do dia", "venda do dia", "venda de ontem", "venda de hoje", "total de vendas nos pdvs"))):
+                print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
+                return 17
             output = save_report(report, report_type, requested_period)
             persist_to_supabase(output, report_type, requested_period, local_now)
             await finish_card_prompt(client, entity)
