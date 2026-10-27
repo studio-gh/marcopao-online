@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Guided Bellabyte login + monthly sales prompt probe.
+"""State-aware, conservative probe for Bellabyte monthly sales menu.
 
-Uses BELLABYTE_PASSWORD only if the bot explicitly says a login is required.
-Never prints the password. Selects branch 1 and report 2 only when the
-observed conversation state matches the expected prompts. No period selection
-or Supabase writes occur.
+Logs current bot state and buttons. If the conversation is on the daily-sales
+sub-menu (Atual/Anterior), it backs out using the bot's documented '#' option
+only when the menu's own prompt offers that option; otherwise it stops.
+Never sends a report choice unless the main report menu is explicitly visible.
+No period selection and no Supabase writes.
 """
 import asyncio
 import os
@@ -13,49 +14,48 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 
 BOT_USERNAME = "MonitorMarcopaoBot"
-BRANCH_CHOICE = "1"
-REPORT_CHOICE = "2"
 WAIT_SECONDS = 8
 
 def normalized(message):
     return " ".join((message or "").split())
 
+def buttons(message):
+    markup = getattr(message, "reply_markup", None)
+    labels = []
+    for row in getattr(markup, "rows", []) or []:
+        for button in getattr(row, "buttons", []) or []:
+            label = getattr(button, "text", None)
+            if label:
+                labels.append(str(label).strip())
+    return labels
+
 async def latest_message(client, entity):
     msgs = await client.get_messages(entity, limit=1)
     return msgs[0] if msgs else None
 
-async def wait_for_new(client, entity, previous_id, seconds=WAIT_SECONDS):
+async def wait_for_bot(client, entity, previous_id, seconds=WAIT_SECONDS):
     for _ in range(seconds):
         await asyncio.sleep(1)
-        msgs = await client.get_messages(entity, limit=10)
-        # Ignore our own outgoing echo; wait for a bot response to avoid racing the state machine.
+        msgs = await client.get_messages(entity, limit=15)
         new = [m for m in msgs if m.id > previous_id and not m.out]
         if new:
             return sorted(new, key=lambda m: m.id)
     return []
 
-async def show_messages(messages):
-    for m in messages:
-        direction = "OUTGOING" if m.out else "BOT"
-        text = normalized(m.message)
-        print(f"MSG_ID={m.id} [{direction}] text={text[:500]!r}" + ("…" if len(text) > 500 else ""))
-        markup = getattr(m, "reply_markup", None)
-        labels = []
-        for row in getattr(markup, "rows", []) or []:
-            for button in getattr(row, "buttons", []) or []:
-                label = getattr(button, "text", None)
-                if label:
-                    labels.append(str(label)[:100])
-        if labels:
-            print("BUTTONS: " + " | ".join(labels[:30]))
+def show(message):
+    text = normalized(message.message)
+    print(f"BOT_STATE: {text[:500]!r}" + ("…" if len(text) > 500 else ""))
+    labels = buttons(message)
+    if labels:
+        print("BUTTONS: " + " | ".join(labels[:30]))
+    return text, labels
 
 async def main():
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
     session = os.environ.get("TELEGRAM_SESSION_STRING", "").strip()
-    password = os.environ.get("BELLABYTE_PASSWORD", "")
     if not all((api_id, api_hash, session)):
-        print("CONFIG_MISSING: configure Telegram GitHub Actions secrets.")
+        print("CONFIG_MISSING: Telegram Actions secrets are required.")
         return 2
 
     client = TelegramClient(StringSession(session), int(api_id), api_hash)
@@ -70,53 +70,39 @@ async def main():
             print("STOPPED: no conversation history.")
             return 4
 
-        current = normalized(latest.message)
-        print(f"CURRENT_STATE: {current[:300]!r}")
+        current, labels = show(latest)
+        lower = current.lower()
 
-        # Bellabyte's own application login, not Telegram account authentication.
-        if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
-            if not password:
-                print("BELLABYTE_PASSWORD_MISSING: add the Bellabyte-only password as Actions secret BELLABYTE_PASSWORD.")
-                return 6
-            print("ACTION: sending Bellabyte password from Actions secret; value is never logged.")
-            before = latest.id
-            await client.send_message(entity, password)
-            new = await wait_for_new(client, entity, before, seconds=WAIT_SECONDS + 4)
-            if new:
-                await show_messages(new)
-            latest = await latest_message(client, entity)
-            current = normalized(latest.message if latest else "")
-            if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
-                print("LOGIN_NOT_ACCEPTED_OR_MORE_STEPS_REQUIRED: stopped without selecting a report.")
-                return 7
+        if "venda de hoje" in lower and "dia anterior" in lower:
+            # Only use the back/menu token if the same keyboard explicitly offers it.
+            if "#" in labels:
+                print("ACTION: returning from daily-sales submenu with offered '#' option.")
+                before = latest.id
+                await client.send_message(entity, "#")
+                replies = await wait_for_bot(client, entity, before)
+                for msg in replies:
+                    show(msg)
+                latest = await latest_message(client, entity)
+                current = normalized(latest.message if latest else "")
+                lower = current.lower()
+            else:
+                print("STOPPED: daily-sales submenu detected, but no explicit back option found.")
+                return 5
 
-        # If the bot asks for a branch, select the known branch.
-        if "qual filial deseja se conectar" in current.lower():
-            print("ACTION: selecting branch 1 (Marcopão Lanchonete e Panificação Ltda).")
-            before = latest.id
-            await client.send_message(entity, BRANCH_CHOICE)
-            new = await wait_for_new(client, entity, before)
-            if new:
-                await show_messages(new)
-            latest = await latest_message(client, entity)
-            current = normalized(latest.message if latest else "")
+        if "precisa se logar" in lower or "precisa fazer login" in lower:
+            print("STOPPED: Bellabyte application login is required.")
+            return 6
 
-        if "precisa se logar" in current.lower() or "precisa fazer login" in current.lower():
-            print("STOPPED: Bellabyte still requires login.")
-            return 7
-        if "venda acumulada mês" not in current.lower() or "top 100" not in current.lower():
-            print("STOPPED: latest state is not the expected report-selection menu; no report option sent.")
-            return 5
+        if "venda acumulada mês" in lower and "top 100" in lower:
+            print("MAIN_REPORT_MENU_CONFIRMED: ready to select report 2 in a separate approved step.")
+            print("NO_REPORT_CHOICE_SENT: this run only diagnoses conversation state.")
+            return 0
 
-        print("ACTION: selecting report 2 (Venda Acumulada Mês). No period will be selected.")
-        before = latest.id
-        await client.send_message(entity, REPORT_CHOICE)
-        new = await wait_for_new(client, entity, before, seconds=WAIT_SECONDS + 4)
-        if new:
-            await show_messages(new)
-        else:
-            print("NO_REPLY_YET: no new message appeared within the wait window.")
-        print("PROBE_COMPLETE: no period was selected and no database writes were made.")
+        if "qual filial deseja se conectar" in lower:
+            print("STOPPED: bot is asking for branch selection; no branch or report choice sent in this diagnostic run.")
+            return 0
+
+        print("STOPPED: state not recognized; no report choice sent.")
         return 0
     finally:
         await client.disconnect()
