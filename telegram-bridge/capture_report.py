@@ -263,12 +263,42 @@ def matches_report(text, mode):
         and ("total de vendas nos pdvs" in low or "venda total do dia" in low)
         and "deseja visualizar os cartões" not in low
     )
-async def search_recent_report(client, entity, mode, after_id=None):
-    items = await client.get_messages(entity, limit=100)
+async def search_recent_report(client, entity, mode, after_id=None, limit=100):
+    # Scan enough history to recover missed days without flooding Telegram with unbounded history.
+    items = await client.get_messages(entity, limit=limit)
     candidates = [m for m in items if not m.out and matches_report(m.message, mode)]
     if after_id is not None:
         candidates = [m for m in candidates if m.id > after_id]
     return max(candidates, key=lambda m: m.id) if candidates else None
+
+async def find_historical_daily_report(client, entity, target_date, scan_limit=500):
+    """Locate a real daily-report message already present in the Monitorbot chat history."""
+    items = await client.get_messages(entity, limit=scan_limit)
+    for message in sorted((m for m in items if not m.out), key=lambda m: m.id, reverse=True):
+        if not matches_report(message.message, "daily_yesterday"):
+            continue
+        body = norm(message.message)
+        low = body.lower()
+        # The Monitorbot's explicit "Venda do Dia Anterior" label means the report date
+        # can be inferred from the report request only when its message timestamp is the target day.
+        # Prefer explicit dates if the body contains one; otherwise use the Telegram message date
+        # only when it is on the target calendar day, avoiding assumptions about stale reports.
+        explicit = re.search(r"(?:data|referência|período)\\s*:?\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{2}/\\d{2}/\\d{4})", body, re.I)
+        if explicit:
+            value = explicit.group(1)
+            if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value):
+                report_date = value
+            else:
+                dd, mm, yyyy = value.split("/")
+                report_date = f"{yyyy}-{mm}-{dd}"
+            if report_date == target_date:
+                return message
+            continue
+        if "venda do dia anterior" in low and message.date:
+            message_day = message.date.astimezone(ZoneInfo("America/Sao_Paulo")).date().isoformat()
+            if message_day == target_date:
+                return message
+    return None
 
 async def wait_for_report(client, entity, mode, after_id, timeout=30):
     """Poll Telegram history for the report, not just the first prompt response."""
