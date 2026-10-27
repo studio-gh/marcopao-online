@@ -918,6 +918,16 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
         if found is not None:
             report, report_text = found, found.message or ""
     if report is None or not report_text:
+        # Some Bellabyte reports arrive as several data-only Telegram chunks after a
+        # "report may take a while" message. Reassemble only messages newer than this turn.
+        history = await client.get_messages(entity, limit=120)
+        recent = sorted(
+            (message for message in history
+             if not message.out and getattr(message, "id", 0) > menu_id),
+            key=lambda message: getattr(message, "id", 0)
+        )
+        report, report_text = find_report_payload(recent, report_type)
+    if report is None or not report_text:
         latest_now = await latest_incoming(client, entity)
         raise RuntimeError(
             f"Report {option} ({report_type}) not found; latest response="
