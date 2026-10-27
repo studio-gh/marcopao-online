@@ -128,7 +128,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     report = json.loads(Path(report_file).read_text(encoding="utf-8"))
     raw = report["raw_text"]
     totals, warnings = parse_totals(raw)
-    if not totals.get("total") or not any(term in raw.lower() for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda acumulada do mês")):
+    if "total" not in totals or not any(term in raw.lower() for term in ("venda do dia", "venda de hoje", "venda de ontem", "venda acumulada do mês")):
         raise RuntimeError("Report validation failed; database write was not attempted.")
     branch = report.get("branch", "")
     if report_type == "sale_day":
