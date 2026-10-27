@@ -589,12 +589,12 @@ function applyFilters(){
  const structuredMode=["top-value","top-quantity","ticket","products-group"].includes(selectedType);
  const other=!dailyMode && !monthlyMode && selectedType!=="sales-group" && !structuredMode;
 
- document.querySelector('.hero').classList.toggle('hidden-by-filter',other || selectedType==='sales-group' || dailyMode);
- document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other || dailyMode));
- document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other);
- document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || dailyMode || monthlyMode);
- document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',other && selectedType!=='sales-group');
- document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other || dailyMode || monthlyMode);
+ document.querySelector('.hero').classList.toggle('hidden-by-filter',other || structuredMode || selectedType==='sales-group' || dailyMode);
+ document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.toggle('hidden-by-filter',other || structuredMode || dailyMode));
+ document.querySelector('.showcase-grid').classList.toggle('hidden-by-filter',other || structuredMode);
+ document.querySelector('.showcase-grid .panel:nth-child(2)').classList.toggle('hidden-by-filter',other || structuredMode || dailyMode || monthlyMode);
+ document.querySelector('.showcase-grid .panel:first-child').classList.toggle('hidden-by-filter',(other && selectedType!=='sales-group') || structuredMode);
+ document.querySelector('.group-detail-panel').classList.toggle('hidden-by-filter',other || structuredMode || dailyMode || monthlyMode);
  document.getElementById('dailyCompareView').classList.toggle('hidden-by-filter',!dailyMode);
  document.getElementById('otherReportView').classList.toggle('active',other);
  document.getElementById('structuredReportView').classList.toggle('active',structuredMode);
