@@ -21,6 +21,7 @@ permissions:
   contents: read
 
 # This collector controls one shared Telegram conversation. Never run two copies concurrently.
+# Live collection runs on schedule/manual dispatch, or a deliberate push commit tagged [collect-report].
 concurrency:
   group: marcopao-monitorbot-collector
   cancel-in-progress: false
