@@ -76,35 +76,10 @@
 </head>
 <body>
 
-<div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-  <section class="auth-card">
-    <div class="mark" aria-hidden="true">M</div>
-    <h1 id="authTitle">Marcopão Online</h1>
-    <p>Acesso restrito às pessoas autorizadas. Entre com sua conta do Supabase. O painel não libera dados financeiros apenas por criar uma conta.</p>
-    <form id="authForm" class="auth-form">
-      <label for="authEmail">E-mail</label>
-      <input id="authEmail" type="email" autocomplete="username" required>
-      <label for="authPassword">Senha</label>
-      <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
-      <div class="auth-actions">
-        <button class="btn" id="authLogin" type="submit">Entrar</button>
-        <button class="btn" id="authSignup" type="button">Criar conta</button>
-      </div>
-    </form>
-    <div id="authNote" class="auth-note" role="status" aria-live="polite">Verificando a sessão segura…</div>
-    <div id="authUidPanel" class="auth-uid-panel" hidden>
-      <strong>UID da conta</strong>
-      <p>Esta conta ainda não tem liberação para os dados da empresa. Envie este UID ao administrador para autorizar o acesso.</p>
-      <code id="authUserId"></code>
-      <button class="btn" id="copyAuthUid" type="button">Copiar UID</button>
-    </div>
-  </section>
-</div>
-
 <div class="shell">
   <header class="topbar">
     <div class="brand"><div class="mark">M</div><div><div class="brandname">marcopão <span style="font-weight:500;color:#7a887f">/ visão de vendas</span></div><div class="brandmeta">Painel de acompanhamento · Relatórios Bellabyte</div></div></div>
-    <div class="top-actions"><span class="pill"><span class="dot"></span> Resumo mensal · 26/10 às 15:50</span><button class="btn" id="importBtn">＋ Atualizar relatório</button><button class="btn" id="refreshDashboard" type="button">Atualizar dados</button><button class="btn" id="logoutDashboard" type="button">Sair</button><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>
+    <div class="top-actions"><span class="pill"><span class="dot"></span> Resumo mensal · 26/10 às 15:50</span><button class="btn" id="importBtn">＋ Atualizar relatório</button><button class="btn" id="refreshDashboard" type="button">Atualizar dados</button><button class="btn" onclick="window.print()">Imprimir / PDF</button></div>
   </header>
 
   <section class="filters" aria-label="Filtros inteligentes">
@@ -537,115 +512,25 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://aeikehzlsdyklcvgjouz.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_2aYNa7OL_jLOfkMCO9Co-g_VyXWN4C8';
 const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-const gate = document.getElementById('authGate');
-const note = document.getElementById('authNote');
-const uidPanel = document.getElementById('authUidPanel');
-const uidOutput = document.getElementById('authUserId');
-let activeUser = null;
-let handlingSession = false;
 
-function status(message){ note.textContent = message; }
-function showLocked(uid){
-  gate.style.display = 'grid';
-  uidPanel.hidden = !uid;
-  if(uid) uidOutput.textContent = uid;
-}
 async function refreshDailyRows(){
   const {data, error} = await sb
-    .from('report_imports')
-    .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source')
-    .eq('report_type','sale_day')
-    .in('status',['needs_review','validated'])
+    .from('dashboard_daily_reports')
+    .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
     .order('report_date',{ascending:true})
     .limit(200);
   if(error){
-    document.getElementById('filterStatus').textContent = 'Não foi possível carregar relatórios do Supabase. Verifique a sessão e as permissões.';
+    document.getElementById('filterStatus').textContent = 'Não foi possível carregar os relatórios. Atualize a página ou tente novamente mais tarde.';
     return;
   }
   window.setSupabaseDailyReports(data||[]);
   const count=(data||[]).length;
   document.getElementById('filterStatus').textContent = count
-    ? count+' relatório(s) diário(s) carregado(s) do Supabase. Registros needs_review ainda aguardam conferência.'
-    : 'Nenhum relatório diário foi importado no Supabase. Execute a coleta diária; a comparação aparecerá quando houver dois dias consecutivos.';
+    ? count+' relatório(s) diário(s) carregado(s). Registros pendentes de conferência estão identificados.'
+    : 'Nenhum relatório diário foi importado no banco. A comparação aparecerá quando houver dois dias consecutivos.';
 }
-async function handleSession(session){
-  if(handlingSession)return;
-  handlingSession=true;
-  try{
-    activeUser=session?.user||null;
-    if(!session){
-      showLocked(false);
-      status('Entre com uma conta autorizada para acessar os dados.');
-      return;
-    }
-    status('Verificando se esta conta tem autorização para o painel…');
-    const {data:grant,error}=await sb.from('dashboard_access').select('user_id').eq('user_id',session.user.id).maybeSingle();
-    if(error){
-      showLocked(false);
-      status('Não foi possível verificar a autorização. Confirme a configuração do painel e tente novamente.');
-      return;
-    }
-    if(!grant){
-      showLocked(session.user.id);
-      status('Conta autenticada, mas sem liberação para os dados da empresa.');
-      return;
-    }
-    gate.style.display='none';
-    await refreshDailyRows();
-  }finally{
-    handlingSession=false;
-  }
-}
-
-document.getElementById('authForm').addEventListener('submit',async event=>{
-  event.preventDefault();
-  status('Entrando…');
-  const email=document.getElementById('authEmail').value.trim();
-  const password=document.getElementById('authPassword').value;
-  const {error}=await sb.auth.signInWithPassword({email,password});
-  if(error)status('Não foi possível entrar. Confira as credenciais e se a conta está confirmada.');
-});
-document.getElementById('authSignup').addEventListener('click',async()=>{
-  status('Criando conta…');
-  const email=document.getElementById('authEmail').value.trim();
-  const password=document.getElementById('authPassword').value;
-  if(!email||password.length<8){
-    status('Informe um e-mail válido e uma senha com pelo menos 8 caracteres.');
-    return;
-  }
-  const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:window.location.href.split('#')[0].split('?')[0]}});
-  if(error){
-    status('Cadastro não concluído. Verifique as configurações de Auth e URL de redirecionamento do Supabase.');
-    return;
-  }
-  if(data.user){
-    showLocked(data.user.id);
-    status(data.session
-      ? 'Conta criada. Ela ainda precisa ser autorizada para ver os dados.'
-      : 'Cadastro enviado. Confirme o e-mail e depois entre novamente. O UID abaixo identifica a conta a liberar.');
-  }else{
-    status('Se o e-mail puder ser cadastrado, você receberá as próximas instruções.');
-  }
-});
-document.getElementById('copyAuthUid').addEventListener('click',async()=>{
-  if(!uidOutput.textContent)return;
-  try{await navigator.clipboard.writeText(uidOutput.textContent);status('UID copiado. A conta ainda precisa ser autorizada.')}
-  catch(_){status('Copie manualmente o UID exibido no quadro.')}
-});
-document.getElementById('logoutDashboard').addEventListener('click',async()=>{
-  await sb.auth.signOut();
-  showLocked(false);
-  status('Sessão encerrada.');
-});
-document.getElementById('refreshDashboard').addEventListener('click',async()=>{
-  if(activeUser)await refreshDailyRows();
-});
-sb.auth.onAuthStateChange((event,session)=>{
-  // Defer Supabase calls so the auth event callback does not hold its internal lock.
-  setTimeout(()=>handleSession(session),0);
-});
-const {data:{session}}=await sb.auth.getSession();
-await handleSession(session);
+document.getElementById('refreshDashboard').addEventListener('click', refreshDailyRows);
+await refreshDailyRows();
 </script>
 
 </body>
