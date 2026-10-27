@@ -199,19 +199,21 @@
       </tbody></table></div>
     </div>
   </section>
-  <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Uma prévia dos relatórios que seu pai usa, reunidos em um só lugar.</p></div><span class="tag">AMOSTRAS DO MONITORBOT</span></section>
-  <section class="showcase-grid">
-    <article class="showcase panel">
-      <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DE OUTUBRO</div><h3>Venda do mês</h3></div><span class="showcase-icon">↗</span></div>
-      <div class="showcase-number">Relatório mensal não importado</div><div class="showcase-caption">Aguardando os dados do relatório 2 do Monitorbot. Nenhum valor de amostra será mostrado como atual.</div>
-      <div class="progress-label"><span>Meta mensal</span><span>Meta ainda não configurada</span></div><div class="track"><div class="fill" style="width:100%"></div></div>
-      <div class="showcase-foot">Valor informado pelo relatório acumulado. Sem meta inventada.</div>
+  <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Resumo executivo com dados importados e pendências claramente sinalizadas.</p></div><span class="tag">VISÃO DE GESTÃO</span></section>
+  <section class="showcase-grid" id="businessOverview">
+    <article class="showcase panel" id="monthlyOverviewCard">
+      <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DO MÊS</div><h3>Venda do mês</h3></div><span class="showcase-icon">↗</span></div>
+      <div class="showcase-number" id="monthlyOverviewTotal">R$ 207.977,18</div>
+      <div class="showcase-caption" id="monthlyOverviewCaption">12.584 cupons · Ticket médio R$ 16,53 · relatório manual importado em 27/10 às 14:01.</div>
+      <div class="progress-label"><span>Conferência</span><span id="monthlyReviewState">Pendente de revisão</span></div>
+      <div class="showcase-foot">Fonte: relatório 2 recebido do Monitorbot. Total informativo; o relatório ainda requer conferência de cancelamentos.</div>
     </article>
-    <article class="showcase panel">
+    <article class="showcase panel" id="productOverviewCard">
       <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">DESTAQUE DE PRODUTO</div><h3>Quem puxa o faturamento?</h3></div><span class="showcase-icon">★</span></div>
-      <div class="showcase-number">Relatório de produtos não importado</div><div class="showcase-caption">Aguardando o relatório correspondente do Monitorbot.</div>
-      <div class="product-highlight"><span class="product-badge">01</span><div><strong>Produto essencial</strong><div class="showcase-caption">Cruzar faturamento e quantidade ajuda a enxergar os campeões da padaria.</div></div></div>
-      <div class="showcase-foot">Amostra do relatório de produtos por grupo, conforme texto enviado.</div>
+      <div class="showcase-number" id="productOverviewTop">Aguardando importação</div>
+      <div class="showcase-caption" id="productOverviewCaption">O relatório 3 ainda não foi capturado automaticamente. Não há um ranking validado para orientar compras.</div>
+      <div class="product-highlight"><span class="product-badge">!</span><div><strong>Compra baseada em evidência</strong><div class="showcase-caption">O ranking só vira recomendação depois de cruzar valor, quantidade, estoque e perdas.</div></div></div>
+      <div class="showcase-foot">Não use este card como recomendação de compra até o relatório 3 ser importado e validado.</div>
     </article>
   </section>
   <section class="panels insight-panels">
