@@ -17,6 +17,7 @@ report_type_for_option = MODULE.report_type_for_option
 monthly_period = MODULE.monthly_period
 stable_report_identity = MODULE.stable_report_identity
 find_report_payload = MODULE.find_report_payload
+report_title_match = MODULE.report_title_match
 
 
 
@@ -199,6 +200,10 @@ Ticket Médio: 16,53
         report, raw = find_report_payload(messages, "ticket_average")
         self.assertEqual(report.id, 2)
         self.assertIn("24,99", raw)
+
+    def test_group_title_is_recognized_even_when_body_is_a_separate_message(self):
+        self.assertTrue(report_title_match("Vendas por grupoAcumulada do Mês de Outubro Filial: MARCOPAO", "sales_by_group"))
+        self.assertTrue(report_title_match("Vendas de Produto Por Grupo Acumulada do Mês", "products_by_group"))
 
     def test_report_payload_combines_group_heading_and_body(self):
         messages = [
