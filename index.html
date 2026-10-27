@@ -674,30 +674,34 @@ async function refreshDailyRows() {
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
   setStatus('Consultando os relatórios mais recentes no Supabase…');
   try {
-    const {data: sessionData} = await sb.auth.getSession();
-    const user = sessionData?.session?.user;
-    if (!user) {
-      if (root) root.dataset.state = 'error';
-      if (state) state.textContent = 'Login necessário';
-      setStatus('Os dados financeiros estão protegidos. Entre com a conta de acesso do dashboard para carregá-los.');
-      return false;
-    }
-    const {data: accessRow, error: accessError} = await sb.from('dashboard_access').select('user_id').eq('user_id', user.id).maybeSingle();
-    if (accessError) throw accessError;
-    if (!accessRow) {
-      if (root) root.dataset.state = 'error';
-      if (state) state.textContent = 'Acesso não autorizado';
-      setStatus('Esta conta ainda não tem permissão para consultar os relatórios. Peça ao administrador para autorizar o usuário.');
-      return false;
-    }
-    const {data, error} = await sb
-      .from('report_imports')
-      .select('id,report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at,raw_text,validation_notes')
-      .in('report_type', ['sale_day','monthly_sales','top_value','top_quantity','ticket_average','sales_by_group','products_by_group'])
-      .order('imported_at', {ascending:false})
-      .limit(200);
-    if (error) throw error;
-    const rows = data || [];
+    // Read the safe daily view only, with a publishable key and anonymous access explicitly revoked elsewhere.
+    // This endpoint is a read-only, least-privilege summary and must never include raw_text or card details.
+    const {data: dailyRows, error: dailyError} = await sb
+      .from('dashboard_daily_reports')
+      .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
+      .order('report_date', {ascending:false})
+      .limit(90);
+    if (dailyError) throw dailyError;
+    const rows = (dailyRows || []).map(row => ({
+      ...row,
+      id: [row.report_type,row.branch_name_raw,row.report_date].join('|'),
+      totals: row.totals || {},
+      validation_notes: []
+    }));
+    lastSuccessfulSyncAt = new Date().toISOString();
+    if (root) root.dataset.state = 'ok';
+    if (state) state.textContent = 'Conectado ao Supabase';
+    const latestReport = rows.reduce((latest, row) => {
+      const stamp = row.imported_at ? new Date(row.imported_at) : null;
+      return stamp && (!latest || stamp > latest) ? stamp : latest;
+    }, null);
+    const latestReportEl = document.getElementById('lastReportTime');
+    if (latestReportEl) latestReportEl.textContent = latestReport ? formatClock(latestReport) : 'Nenhum relatório importado';
+    window.setSupabaseReports(rows);
+    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
+    const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
+    setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '. Relatórios mensais e de produtos aguardam endpoint seguro próprio.');
+    return true;
     lastSuccessfulSyncAt = new Date().toISOString();
     if (root) root.dataset.state = 'ok';
     if (state) state.textContent = 'Conectado ao Supabase';
