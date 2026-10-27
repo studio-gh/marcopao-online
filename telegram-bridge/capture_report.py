@@ -499,7 +499,7 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     branch = report.get("branch", BRANCH)
     period_start, period_end, report_date = report_period(report_type, queried_at, requested_period)
     captured_at = report.get("message_date") or report.get("captured_at") or datetime.now(timezone.utc).isoformat()
-    content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    content_hash = report_content_hash(raw)
 
     notes = [
         "Canonical snapshot selected by policy: newest successfully captured Telegram report for this report type, branch and period.",
@@ -663,6 +663,10 @@ def local_today_from_queried_at(queried_at, requested_month):
 def stable_report_identity(report_type, branch, period_start, period_end):
     identity = "|".join((str(report_type), norm(branch).upper(), str(period_start), str(period_end)))
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+def report_content_hash(raw):
+    """Content-based idempotency key so revised reports are retained as separate history rows."""
+    return hashlib.sha256((raw or "").encode("utf-8")).hexdigest()
 
 def report_period(report_type, queried_at, requested_period):
     if report_type == "monthly_sales":
