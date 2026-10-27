@@ -125,6 +125,13 @@ Quantidades de Cupons: 10
         )
         self.assertTrue(is_report_menu_message(message))
 
+    def test_report_menu_detected_without_menu_inicial_button(self):
+        message = self.fake_message(
+            "Bem vindo Relatório Bellabyte Digite qual filial deseja se conectar? 1: MARCOPAO",
+            ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "#", "0"),
+        )
+        self.assertTrue(is_report_menu_message(message))
+
     def test_menu_has_all_seven_report_types(self):
         expected = {
             "1": "sale_day",
