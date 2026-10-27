@@ -169,6 +169,51 @@ Ticket Médio: 16,53
         self.assertTrue(matches_report_type("Top 100 Valor\nPão francês R$ 41600,11", "top_value"))
         self.assertFalse(matches_report_type("Venda Acumulada do Mês\nTotal: R$ 207977,18", "top_value"))
 
+    def test_actual_bellabyte_top_value_blocks(self):
+        raw = """Top 100 Valor Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA
+
+1: PAO FRANCES
+Total R$: 43261,02
+Quantidade: 1731,097KG
+Preço Atual R$: 24,99
+Preço Medio R$: 24,99
+
+2: PAO DE QUEIJO
+Total R$: 10411,11
+Quantidade: 165,320KG
+Preço Atual R$: 63,00
+Preço Medio R$: 63,00
+"""
+        totals, warnings = parse_report_data("top_value", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertEqual(totals["entries"][0]["name"], "PAO FRANCES")
+        self.assertEqual(totals["entries"][0]["value"], 43261.02)
+        self.assertEqual(totals["entries"][0]["quantity"], 1731.097)
+        self.assertEqual(totals["entries"][0]["unit"], "kg")
+
+    def test_actual_bellabyte_top_quantity_blocks(self):
+        raw = """Top 100 Quantidade Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA
+
+1: SACOLA BIODEGRADAVEL 40X50
+Quantidade: 3188 UN
+Preço:R$0,08
+Preço Médio Venda:R$0,08
+
+2: PAO FRANCES
+Quantidade: 1731,1 KG
+Preço:R$24,99
+Preço Médio Venda:R$24,99
+"""
+        totals, warnings = parse_report_data("top_quantity", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertEqual(totals["entries"][0]["name"], "SACOLA BIODEGRADAVEL 40X50")
+        self.assertEqual(totals["entries"][0]["quantity"], 3188.0)
+        self.assertEqual(totals["entries"][0]["unit"], "un")
+        self.assertEqual(totals["entries"][0]["unit_price"], 0.08)
+        self.assertEqual(totals["entries"][1]["quantity"], 1731.1)
+        self.assertEqual(totals["entries"][1]["unit"], "kg")
+        self.assertEqual(totals["entries"][1]["unit_price"], 24.99)
+
     def test_product_rows_can_include_revenue_and_quantity(self):
         row = "Pão francês R$ 41600,11 1.664,635 kg"
         totals, warnings = parse_report_data("products_by_group", row)
