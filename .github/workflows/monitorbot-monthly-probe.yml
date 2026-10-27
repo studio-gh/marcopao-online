@@ -53,7 +53,7 @@ jobs:
 
   collect-report:
     needs: validate
-    if: github.event_name != 'push' || contains(github.event.head_commit.message, '[collect-report]')
+    if: github.event_name != 'push' || contains(github.event.head_commit.message, '[collect-report')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Only this job is serialized; code validation can run immediately and does not wait for Telegram.
