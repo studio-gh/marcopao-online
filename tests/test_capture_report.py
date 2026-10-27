@@ -79,7 +79,7 @@ Quantidades de Cupons: 8
         self.assertFalse(matches_report("Venda do Dia: selecione a opção que deseja", "daily_yesterday"))
 
     def test_missing_total_is_flagged(self):
-        totals, warnings = parse_totals("Venda do Dia\\nQuantidades de Cupons: 10")
+        totals, warnings = parse_totals("Venda do Dia\nQuantidades de Cupons: 10")
         self.assertNotIn("total", totals)
         self.assertTrue(any("Total de vendas" in warning for warning in warnings))
 
@@ -161,21 +161,21 @@ Ticket Médio: 16,53
         self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
 
     def test_product_and_group_reports_do_not_invent_sales_total(self):
-        raw = "Pão francês R$ 41600,11\\nPão de queijo R$ 10048,36"
+        raw = "Pão francês R$ 41600,11\nPão de queijo R$ 10048,36"
         totals, warnings = parse_report_data("top_value", raw)
         self.assertEqual(totals["entry_count"], 2)
         self.assertNotIn("total", totals)
         self.assertEqual(totals["entries"][0]["name"], "Pão francês")
-        self.assertTrue(matches_report_type("Top 100 Valor\\nPão francês R$ 41600,11", "top_value"))
-        self.assertFalse(matches_report_type("Venda Acumulada do Mês\\nTotal: R$ 207977,18", "top_value"))
+        self.assertTrue(matches_report_type("Top 100 Valor\nPão francês R$ 41600,11", "top_value"))
+        self.assertFalse(matches_report_type("Venda Acumulada do Mês\nTotal: R$ 207977,18", "top_value"))
 
     def test_each_menu_report_type_is_distinct(self):
         examples = {
-            "top_value": "Top 100 Valor\\nPão francês R$ 41600,11",
-            "top_quantity": "Top 100 Quantidade\\nPão francês 1664,635 kg",
-            "ticket_average": "Ticket Médio Preço Vendas por quantidade\\nPão francês R$ 16,53",
-            "sales_by_group": "Total Vendas Por Grupo\\nPadaria R$ 85000,00",
-            "products_by_group": "Vendas de Produto Por Grupo\\nPão francês R$ 41600,11",
+            "top_value": "Top 100 Valor\nPão francês R$ 41600,11",
+            "top_quantity": "Top 100 Quantidade\nPão francês 1664,635 kg",
+            "ticket_average": "Ticket Médio Preço Vendas por quantidade\nPão francês R$ 16,53",
+            "sales_by_group": "Total Vendas Por Grupo\nPadaria R$ 85000,00",
+            "products_by_group": "Vendas de Produto Por Grupo\nPão francês R$ 41600,11",
         }
         for report_type, body in examples.items():
             with self.subTest(report_type=report_type):
