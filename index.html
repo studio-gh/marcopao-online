@@ -286,6 +286,18 @@ let groupSales=[];
 let monthlyRevenue=null;
 let productSales=[];
 
+function productCategory(name){
+ const n=String(name||'').toLocaleLowerCase('pt-BR');
+ if(/sacola|saco\\s+pl[aá]st|embalagem|bobina|etiqueta|filme\\s+pvc|papel\\s+kraft|fita\\s+adesiva/i.test(n))return 'Embalagens e insumos';
+ if(/p[aã]o|broa|baguete|franc[eê]s|bisnagu|torrada/.test(n))return 'Padaria';
+ if(/coxinha|salgad|pastel|empada|quibe|esfiha|croquete/.test(n))return 'Salgados e lanches';
+ if(/caf[eé]|capuccino|cappuccino|suco|guaran[aá]|refrigerante|[áa]gua|bebida|mate|chá/.test(n))return 'Bebidas';
+ if(/bolo|doce|sonho|brigitt|brigadeiro|bala|chocolate|biscoito|cookie|rosca|pudim|torta/.test(n))return 'Doces e confeitaria';
+ if(/queijo|mu[cç]arela|presunto|mortadela|frango|carne|lingui[cç]a|bacon|frios|requeij[aã]o/.test(n))return 'Frios e proteínas';
+ if(/leite|iogurte|manteiga|margarina|creme/.test(n))return 'Laticínios';
+ if(/a[cç][uú]car|arroz|feij[aã]o|farinha|[óo]leo|macarr[aã]o/.test(n))return 'Mercearia e ingredientes';
+ return 'Outros / revisar';
+}
 function renderProductionRows(entries, reportRow){
  const root=document.getElementById('productTopList');
  if(!root)return;
@@ -304,11 +316,13 @@ function renderProductionRows(entries, reportRow){
    ? Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+escapeCardText(item.unit)
    : 'Quantidade não informada';
   const group=item.group_name?'<span>'+escapeCardText(item.group_name)+'</span>':'';
-  return '<div class="product-row"><span class="rank-num">'+String(index+1).padStart(2,'0')+'</span><div class="product-info"><strong>'+escapeCardText(item.name)+'</strong><span>'+qty+'</span>'+group+'</div><strong>'+money(Number(item.value))+'</strong></div>';
+  return '<div class="product-row"><span class="rank-num">'+String(index+1).padStart(2,'0')+'</span><div class="product-info"><strong>'+escapeCardText(item.name)+'</strong><span>'+qty+'</span><span class="product-category-chip">'+escapeCardText(productCategory(item.name))+'</span>'+group+'</div><strong>'+money(Number(item.value))+'</strong></div>';
  }).join('');
  const foot=root.parentElement.querySelector('.showcase-foot');
+ const categoryCounts=rows.reduce((acc,item)=>(acc[productCategory(item.name)]=(acc[productCategory(item.name)]||0)+1,acc),{});
+ const categorySummary=Object.entries(categoryCounts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([name,count])=>name+' ('+count+')').join(', ');
  const review=reportRow?.status==='validated'?'validado':'pendente de conferência';
- if(foot)foot.textContent='Fonte: '+(reportRow?.report_type==='top_value'?'relatório 3 (Top 100 por valor)':'relatório 13 (vendas de produto por grupo)')+' · '+rows.length+' produtos com faturamento identificado · '+review+' · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
+ if(foot)foot.textContent='Fonte: '+(reportRow?.report_type==='top_value'?'relatório 3 (Top 100 por valor)':'relatório 13 (vendas de produto por grupo)')+' · '+rows.length+' produtos com faturamento identificado · categorias automáticas mais frequentes: '+categorySummary+' · '+review+' · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
 }
 function formatReportDate(value){
  return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
