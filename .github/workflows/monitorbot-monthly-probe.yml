@@ -45,7 +45,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
-          REPORT_MODE: ${{ github.event_name == 'schedule' && 'daily_yesterday' || inputs.report_mode }}
+          REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode || 'daily_yesterday' }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
