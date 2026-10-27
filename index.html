@@ -430,7 +430,7 @@ function applyFilters(){
  if(dailyMode){
    renderDailyComparison();
    const newest=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
-   setText('filterStatus',newest?'Comparação diária calculada a partir de relatórios importados neste navegador. A conexão autenticada com Supabase ainda está pendente.':'Relatório diário ainda não importado. A integração autenticada com Supabase ainda está pendente; os números de exemplo foram removidos.');
+   setText('filterStatus',newest?(newest.source==='supabase'?'Comparação diária usando relatórios do Supabase. Último registro: '+(newest.status||'status não informado')+'.':'Comparação diária calculada a partir de relatórios importados neste navegador.'):'Nenhum relatório diário disponível. A coleta precisa importar dados reais; a comparação exige dois dias consecutivos.');
  } else if(other){
    setText('otherReportTitle',reportNames[selectedType]);
    setText('otherReportDescription','Relatório do menu Monitorbot. Conteúdo textual só aparece quando importado manualmente ou pela coleta automatizada.');
