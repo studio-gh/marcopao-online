@@ -643,9 +643,17 @@ window.setSupabaseReports = function(rows){
  const list=rows||[];
  window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
- for(const row of list){if(!types[row.report_type])continue;const k=types[row.report_type];importedReports[k]={text:row.raw_text||'',date:row.period_end||row.report_date||'',branch:row.branch_name_raw||''};}
- if(window.monthlyReportRow?.totals?.total!=null)window.monthlySnapshot=window.monthlyReportRow.totals;
- else window.monthlySnapshot={total:207977.18,dinheiro:44037.26,pix:1352.25,pos_credito:2684.55,pos_debito:2549.19,tef:156650.62,ticket_pagamento:703.31,cupons:12584,ticket_medio:16.53,cupons_cancelados:0,valor_itens_cancelados:182390.51};
+ for(const row of list){
+  if(!types[row.report_type])continue;
+  const key=types[row.report_type];
+  // The public summary view intentionally contains no raw Telegram text.
+  importedReports[key]={text:'',date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||''};
+ }
+ if(window.monthlyReportRow?.totals?.total!=null){
+  window.monthlySnapshot=window.monthlyReportRow.totals;
+ }else{
+  window.monthlySnapshot={total:207977.18,dinheiro:44037.26,pix:1352.25,pos_credito:2684.55,pos_debito:2549.19,tef:156650.62,ticket_pagamento:703.31,cupons:12584,ticket_medio:16.53,cupons_cancelados:0,valor_itens_cancelados:182390.51};
+ }
  if(selectedType==='sale-month')applyFilters();
 };
 
@@ -691,7 +699,6 @@ function formatClock(value) {
 }
 function updateSyncIndicator() {
   const root = document.querySelector('.sync-meta');
-  const state = document.getElementById('syncState');
   const last = document.getElementById('lastSyncTime');
   const countdown = document.getElementById('nextSyncCountdown');
   if (last) last.textContent = lastSuccessfulSyncAt ? formatClock(lastSuccessfulSyncAt) : 'Ainda não consultado';
@@ -700,10 +707,7 @@ function updateSyncIndicator() {
     const totalSeconds = Math.ceil(remaining / 1000);
     countdown.textContent = String(Math.floor(totalSeconds / 60)).padStart(2,'0') + ':' + String(totalSeconds % 60).padStart(2,'0');
   }
-  if (root && state && !refreshInProgress && !lastSuccessfulSyncAt) {
-    root.dataset.state = 'error';
-    state.textContent = 'Aguardando acesso';
-  }
+  if (root && !refreshInProgress && lastSuccessfulSyncAt) root.dataset.state = 'ok';
 }
 setInterval(updateSyncIndicator, 1000);
 
@@ -745,7 +749,10 @@ async function refreshDailyRows() {
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
     const productCount = rows.filter(row => ['top_value','top_quantity','ticket_average','sales_by_group','products_by_group'].includes(row.report_type)).length;
-    setStatus('Dados atualizados: ' + dailyCount + ' diário(s), ' + monthlyCount + ' mensal(is), ' + productCount + ' de produtos/grupos. Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
+    const missing = [];
+    if (!monthlyCount) missing.push('relatório mensal não importado');
+    if (!rows.some(row => row.report_type === 'top_value')) missing.push('relatório 3 não importado');
+    setStatus('Dados atualizados: ' + dailyCount + ' diário(s), ' + monthlyCount + ' mensal(is), ' + productCount + ' de produtos/grupos.' + (missing.length ? ' Pendências: ' + missing.join('; ') + '.' : '') + ' Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
     return true;
   } catch (error) {
     console.error('Marcopão: falha ao consultar Supabase', error);
