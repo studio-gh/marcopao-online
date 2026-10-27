@@ -31,6 +31,14 @@ def is_report_body(text):
         or "total de vendas nos pdvs" in low
         or "venda acumulada do mês" in low
         or "venda total do dia" in low
+        or "top 100 valor" in low
+        or "top 100 por valor" in low
+        or "top 100 quantidade" in low
+        or "top 100 por quantidade" in low
+        or "ticket médio preço" in low
+        or "total vendas por grupo" in low
+        or "total de vendas por grupo" in low
+        or "vendas de produto por grupo" in low
     )
 
 def safe_preview(text, limit=220):
@@ -172,10 +180,14 @@ def parse_report_data(report_type, raw):
             warnings.append("Quantidade de cupons não foi identificada.")
         payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
         missing = [key for key in payment_keys if key not in totals]
+        missing_cards = [key for key in ("pos_credito", "pos_debito", "tef") if key not in totals]
         totals["payment_methods_included"] = [key for key in payment_keys if key in totals]
-        totals["card_sales_included"] = not any(k in missing for k in ("pos_credito", "pos_debito", "tef"))
-        if missing:
-            warnings.append("Meios de pagamento ausentes: " + ", ".join(missing) + ".")
+        totals["card_sales_included"] = not missing_cards
+        if missing_cards:
+            warnings.append("Detalhes de cartão incompletos: faltando " + ", ".join(missing_cards) + ".")
+        other_missing = [key for key in missing if key not in {"pos_credito", "pos_debito", "tef"}]
+        if other_missing:
+            warnings.append("Meios de pagamento ausentes: " + ", ".join(other_missing) + ".")
         else:
             payment_sum = round(sum(totals[k] for k in payment_keys), 2)
             totals["payment_methods_sum"] = payment_sum
@@ -208,8 +220,48 @@ def parse_report_data(report_type, raw):
     return totals, warnings
 
 def parse_totals(raw):
-    # Backwards-compatible entry point retained for current daily/monthly tests.
-    return parse_report_data("sale_day", raw)
+    """Backward-compatible daily-summary parser that reports missing fields without raising."""
+    patterns = {
+        "dinheiro": r"Dinheiro\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pix": r"PIX\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pos_credito": r"POS Crédito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "pos_debito": r"POS Débito\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "tef": r"TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "ticket_pagamento": r"TICKET\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "total": r"(?:Venda Total do dia|Total)\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+        "ticket_medio": r"Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})",
+    }
+    totals, warnings = {}, []
+    for key, pattern in patterns.items():
+        match = re.search(pattern, raw, re.IGNORECASE)
+        if match:
+            try:
+                totals[key] = round(br_number(match.group(1)), 2)
+            except ValueError:
+                warnings.append(f"Valor inválido: {key}")
+    coupons = re.search(r"Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)", raw, re.IGNORECASE)
+    if coupons:
+        totals["cupons"] = int(coupons.group(1).replace(".", ""))
+    if "total" not in totals:
+        warnings.append("Total de vendas não foi identificado.")
+    if "cupons" not in totals:
+        warnings.append("Quantidade de cupons não foi identificada.")
+    payment_keys = ["dinheiro", "pix", "pos_credito", "pos_debito", "tef", "ticket_pagamento"]
+    card_keys = ["pos_credito", "pos_debito", "tef"]
+    missing_cards = [key for key in card_keys if key not in totals]
+    missing_methods = [key for key in payment_keys if key not in totals]
+    totals["payment_methods_included"] = [key for key in payment_keys if key in totals]
+    totals["card_sales_included"] = not missing_cards
+    if missing_cards:
+        warnings.append("Detalhes de cartão incompletos: faltando " + ", ".join(missing_cards) + ".")
+    if "total" in totals and not missing_methods:
+        payment_sum = round(sum(totals[key] for key in payment_keys), 2)
+        totals["payment_methods_sum"] = payment_sum
+        totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
+        if abs(totals["payment_reconciliation_diff"]) > 0.02:
+            warnings.append("Soma dos meios de pagamento difere do total informado.")
+    totals["validation_warnings"] = warnings
+    return totals, warnings
 
 def persist_to_supabase(report_file, report_type, requested_period, queried_at):
     base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -353,7 +405,7 @@ def report_period(report_type, queried_at, requested_period):
         return start, (next_month.date() - timedelta(days=1)).isoformat(), None
     if report_type == "sale_day":
         return requested_period, requested_period, requested_period
-    if re.fullmatch(r"\\d{4}-\\d{2}", requested_period):
+    if re.fullmatch(r"\d{4}-\d{2}", requested_period):
         start = requested_period + "-01"
         end = local_today_from_queried_at(queried_at, requested_period)
         return start, end, end
