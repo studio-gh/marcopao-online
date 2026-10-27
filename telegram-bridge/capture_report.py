@@ -557,18 +557,29 @@ async def main():
                     or not any(marker in latest_text for marker in ("venda total do dia", "venda do dia", "venda de ontem", "venda de hoje", "total de vendas nos pdvs"))):
                 print("DAILY_MATCH_VALIDATION_FAILED: report body did not pass daily semantic validation; no database write attempted.")
                 return 17
-            output = save_report(report, report_type, requested_period)
-            persist_to_supabase(output, report_type, requested_period, local_now)
-            # Answer the optional card-details prompt now. This must happen before returning
-            # to the menu, otherwise subsequent runs can get trapped in the same report-1 loop.
+            # Card detail response is part of every daily capture. Pull it before persisting so
+            # the daily record and its review metadata are written together in Supabase.
             card_report = await finish_card_prompt(client, entity)
             if card_report:
-                card_file = save_report(
-                    card_report, "sale_day_cards", requested_period,
-                    raw_text=(card_report.message or "")
-                )
-                print(f"CARD_DETAILS_CAPTURED_FILE={card_file}")
-            print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} cards_requested=true")
+                card_details = {
+                    "message_id": card_report.id,
+                    "message_date": card_report.date.astimezone(timezone.utc).isoformat() if card_report.date else None,
+                    "raw_text": card_report.message or "",
+                    "content_sha256": hashlib.sha256((card_report.message or "").encode("utf-8")).hexdigest(),
+                    "status": "needs_review",
+                }
+                # Card details can overlap with POS/TEF already represented in the daily total.
+                # Preserve the full response but do not add it to the total a second time.
+                raw_card_text = card_details["raw_text"]
+                totals, warnings = parse_totals(raw_card_text)
+                card_details["parsed_totals"] = totals
+                card_details["validation_warnings"] = warnings
+                card_details["note"] = "Captured separately from the daily total; validate overlap before aggregation."
+                report_data = json.loads(Path(output).read_text(encoding="utf-8"))
+                report_data["card_details"] = card_details
+                Path(output).write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
+            persist_to_supabase(output, report_type, requested_period, local_now)
+            print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period} cards_requested=true card_details_saved={bool(card_report)}")
             return 0
 
         if ("ano atual" in combined and "ano anterior" in combined):
