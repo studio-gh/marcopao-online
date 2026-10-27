@@ -832,8 +832,32 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
     latest, replies = await send_choice(client, entity, current, option, f"select report type {report_type}")
     if not replies:
         raise RuntimeError("Monitorbot did not answer option " + option)
-    latest = await ensure_bellabyte_login(client, entity, latest)
-    latest = await latest_incoming(client, entity) or latest
+
+    def login_gate(messages):
+        return any(
+            "precisa se logar" in norm(message.message or "").lower()
+            or "precisa fazer login" in norm(message.message or "").lower()
+            for message in messages
+        )
+
+    latest_now = await latest_incoming(client, entity)
+    gate_seen = login_gate(replies) or (
+        latest_now is not None
+        and ("precisa se logar" in norm(latest_now.message or "").lower()
+             or "precisa fazer login" in norm(latest_now.message or "").lower())
+    )
+    if gate_seen:
+        print(f"LOGIN_GATE_DURING_SELECTION report_type={report_type}; discarding stale replies and restarting from a clean menu.")
+        current = await recover_menu(client, entity, latest_now or replies[-1])
+        menu_id = current.id
+        latest, replies = await send_choice(client, entity, current, option, f"retry report type {report_type} after login")
+        if not replies or login_gate(replies):
+            raise RuntimeError(f"Login gate persisted while selecting report {report_type}; refusing to use stale Telegram replies.")
+        latest = await latest_incoming(client, entity) or replies[-1]
+    else:
+        latest = latest_now or latest
+        latest = await ensure_bellabyte_login(client, entity, latest)
+        latest = await latest_incoming(client, entity) or latest
 
     if report_type == "sale_day":
         latest, replies = await resolve_daily_selection(client, entity, latest, replies, requested_period, local_now)
