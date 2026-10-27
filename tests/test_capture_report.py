@@ -7,6 +7,9 @@ SPEC = importlib.util.spec_from_file_location("capture_report", ROOT / "telegram
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 parse_totals = MODULE.parse_totals
+parse_report_data = MODULE.parse_report_data
+matches_report_type = MODULE.matches_report_type
+report_period = MODULE.report_period
 matches_report = MODULE.matches_report
 daily_report_date_mismatch = MODULE.daily_report_date_mismatch
 report_type_for_option = MODULE.report_type_for_option
@@ -138,6 +141,56 @@ Quantidades de Cupons: 10
         self.assertNotEqual(first, other_day)
         self.assertNotEqual(first, other_report)
 
+
+    def test_type_aware_parser_reads_monthly_and_all_payment_methods(self):
+        raw = """Venda Acumulada do Mês de Outubro Filial: MARCOPAO LANCHONETE E PANIFICACAO LTDA
+Total de vendas nos Pdvs
+Dinheiro: R$ 44037,26
+PIX: R$ 1352,25
+POS Crédito: R$ 2684,55
+POS Débito: R$ 2549,19
+TEF: R$ 156650,62
+TICKET: R$ 703,31
+Total: R$ 207977,18
+Quantidades de Cupons: 12584
+Ticket Médio: 16,53
+"""
+        totals, warnings = parse_report_data("monthly_sales", raw)
+        self.assertEqual(totals["total"], 207977.18)
+        self.assertEqual(totals["cupons"], 12584)
+        self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
+
+    def test_product_and_group_reports_do_not_invent_sales_total(self):
+        raw = "Pão francês R$ 41600,11\\nPão de queijo R$ 10048,36"
+        totals, warnings = parse_report_data("top_value", raw)
+        self.assertEqual(totals["entry_count"], 2)
+        self.assertNotIn("total", totals)
+        self.assertEqual(totals["entries"][0]["name"], "Pão francês")
+        self.assertTrue(matches_report_type("Top 100 Valor\\nPão francês R$ 41600,11", "top_value"))
+        self.assertFalse(matches_report_type("Venda Acumulada do Mês\\nTotal: R$ 207977,18", "top_value"))
+
+    def test_each_menu_report_type_is_distinct(self):
+        examples = {
+            "top_value": "Top 100 Valor\\nPão francês R$ 41600,11",
+            "top_quantity": "Top 100 Quantidade\\nPão francês 1664,635 kg",
+            "ticket_average": "Ticket Médio Preço Vendas por quantidade\\nPão francês R$ 16,53",
+            "sales_by_group": "Total Vendas Por Grupo\\nPadaria R$ 85000,00",
+            "products_by_group": "Vendas de Produto Por Grupo\\nPão francês R$ 41600,11",
+        }
+        for report_type, body in examples.items():
+            with self.subTest(report_type=report_type):
+                self.assertTrue(matches_report_type(body, report_type))
+                for other in examples:
+                    if other != report_type:
+                        self.assertFalse(matches_report_type(body, other))
+
+    def test_periods_are_report_specific(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        now = datetime(2026, 10, 27, 8, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
+        self.assertEqual(report_period("sale_day", now, "2026-10-26"), ("2026-10-26", "2026-10-26", "2026-10-26"))
+        self.assertEqual(report_period("monthly_sales", now, "2026-10"), ("2026-10-01", "2026-10-31", None))
+        self.assertEqual(report_period("top_value", now, "2026-10"), ("2026-10-01", "2026-10-27", "2026-10-27"))
 
 if __name__ == "__main__":
     unittest.main()
