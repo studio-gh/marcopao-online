@@ -300,7 +300,7 @@ function renderProductionRows(entries, reportRow){
   return '<div class="product-row"><span class="rank-num">'+String(index+1).padStart(2,'0')+'</span><div class="product-info"><strong>'+escapeCardText(item.name)+'</strong><span>'+qty+'</span>'+group+'</div><strong>'+money(Number(item.value))+'</strong></div>';
  }).join('');
  const foot=root.parentElement.querySelector('.showcase-foot');
- if(foot)foot.textContent='Fonte: relatório 13 do Monitorbot · '+rows.length+' produtos com faturamento identificado · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
+ if(foot)foot.textContent='Fonte: '+(reportRow?.report_type==='top_value'?'relatório 3 (Top 100 por valor)':'relatório 13 (vendas de produto por grupo)')+' · '+rows.length+' produtos com faturamento identificado · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
 }
 function formatReportDate(value){
  return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
@@ -684,16 +684,19 @@ window.setSupabaseReports = function(rows){
  window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
  const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const groupRow=latestByType('sales_by_group');
- const productRow=latestByType('products_by_group');
+ const productGroupRow=latestByType('products_by_group');
+ const valueRankRow=latestByType('top_value');
  const groupEntries=groupRow?.totals?.entries||[];
  groupSales=groupEntries.filter(item=>item&&item.name&&Number.isFinite(Number(item.value))).map(item=>({
   name:item.name,value:Number(item.value),
   quantity:Number.isFinite(Number(item.quantity))?Number(item.quantity):null,
   average:Number.isFinite(Number(item.average))?Number(item.average):null
  }));
- productSales=productRow?.totals?.entries||[];
+ // Top 100 by value is the direct source for the production/revenue Top 10; use report 13 only as fallback.
+ const productRankRow=valueRankRow||productGroupRow;
+ productSales=productRankRow?.totals?.entries||[];
  renderGroupBars();
- renderProductionRows(productSales,productRow);
+ renderProductionRows(productSales,productRankRow);
  setText('monthlyOverviewTotal',window.monthlyReportRow?.totals?.total!=null?money(Number(window.monthlyReportRow.totals.total)):'Relatório mensal não importado');
  if(window.monthlyReportRow){
   const mt=window.monthlyReportRow.totals||{};
