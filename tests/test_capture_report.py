@@ -118,16 +118,16 @@ Quantidades de Cupons: 10
         self.assertEqual(totals["payment_reconciliation_diff"], 0.0)
         self.assertEqual(warnings, [])
 
-    def test_report_menu_detected_when_branch_welcome_text_repeats(self):
+    def test_branch_selection_prompt_is_not_a_report_menu(self):
         message = self.fake_message(
             "Bem vindo Relatório Bellabyte Digite qual filial deseja se conectar? 1: MARCOPAO",
             ("1", "2", "3", "4", "10", "12", "13", "Menu Inicial", "#", "0"),
         )
-        self.assertTrue(is_report_menu_message(message))
+        self.assertFalse(is_report_menu_message(message))
 
-    def test_report_menu_detected_without_menu_inicial_button(self):
+    def test_report_menu_with_selected_branch_is_recognized(self):
         message = self.fake_message(
-            "Bem vindo Relatório Bellabyte Digite qual filial deseja se conectar? 1: MARCOPAO",
+            "Bem vindo Relatório Bellabyte Sua filial é a [1] MARCOPAO\\n1: Venda do Dia\\n2: Venda Acumulada Mês\\n3: Top 100 Valor",
             ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "#", "0"),
         )
         self.assertTrue(is_report_menu_message(message))
