@@ -464,6 +464,7 @@ REPORT_MODES = {
     "products_by_group": "products_by_group",
 }
 REPORT_TYPE_TO_OPTION = {value: key for key, value in REPORT_OPTIONS.items()}
+# [collect-report] Run the serialized live collector after parser regression tests pass.
 
 def report_type_for_option(option):
     return REPORT_OPTIONS.get(str(option).strip())
