@@ -358,7 +358,8 @@ def parse_report_data(report_type, raw):
                 r"Total\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
                 r"Faturamento\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
                 r"Valor Total\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
-            ])            if revenue is not None:
+            ])
+            if revenue is not None:
                 entry["value"] = revenue
             unit_price = parse_price(block_text, [
                 r"Preço\s*M[eé]dio(?:\s+Venda)?\s*:?\s*R\$\s*:?\s*([\d.]+,\d{2})",
