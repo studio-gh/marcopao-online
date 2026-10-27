@@ -232,6 +232,16 @@
     <div class="showcase-foot">Os dois produtos líderes ainda não são exibidos porque o arquivo disponível não confirma o faturamento de cada produto dentro de cada grupo. Assim que o relatório detalhado for importado, o cruzamento poderá ser preenchido sem estimativas.</div>
   </section>
   <div class="notice"><div style="font-size:18px">ⓘ</div><div><strong>Dados reais do resumo mensal + participação por grupo preliminar</strong>O resumo de vendas foi extraído da mensagem mais recente do Telegram às 15:50 de 26/10/2026. Os percentuais por grupo ainda vêm do relatório anterior, e os produtos líderes ainda precisam de validação por grupo. A coleta automática e a atualização direta deste painel ainda não estão conectadas.</div></div>
+  <section id="authPanel" class="panel" style="display:none;margin-bottom:18px">
+    <h2 style="margin-top:0">Acesso aos relatórios</h2>
+    <p>Entre com o usuário autorizado do Supabase para consultar os relatórios financeiros. Se ainda não tiver acesso, o administrador precisa liberar seu usuário em <code>dashboard_access</code>.</p>
+    <form id="authForm" class="auth-form">
+      <label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="username" required>
+      <label for="authPassword">Senha</label><input id="authPassword" type="password" autocomplete="current-password" required>
+      <div class="auth-actions"><button class="btn" id="authSignIn" type="submit">Entrar</button><button class="btn" id="authSignOut" type="button">Sair</button></div>
+    </form>
+    <div class="auth-note" id="authNote" aria-live="polite"></div>
+  </section>
   <footer class="footer"><span>MARCOPÃO ONLINE · Protótipo para validação</span><span id="importInfo">Importado para análise em 26/10/2026 · Data original não informada</span><button class="btn" id="resetBtn">Restaurar relatório de exemplo</button></footer>
 </div>
 <div class="modal" id="modal"><div class="modal-card">
@@ -636,6 +646,21 @@ async function refreshDailyRows() {
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
   setStatus('Consultando os relatórios mais recentes no Supabase…');
   try {
+    const {data: sessionData} = await sb.auth.getSession();
+    const user = sessionData?.session?.user;
+    const authPanel = document.getElementById('authPanel');
+    if (authPanel) authPanel.style.display = user ? 'none' : 'block';
+    if (!user) {
+      setStatus('Acesso necessário: entre com a conta autorizada do Supabase. Os relatórios existem no banco, mas a consulta não será feita sem autenticação.');
+      return false;
+    }
+    const {data: accessRow, error: accessError} = await sb.from('dashboard_access').select('user_id').eq('user_id', user.id).maybeSingle();
+    if (accessError) throw accessError;
+    if (!accessRow) {
+      if (authPanel) authPanel.style.display = 'block';
+      setStatus('Conta autenticada, mas sem permissão em dashboard_access. Peça ao administrador para liberar este usuário.');
+      return false;
+    }
     const {data, error} = await sb
       .from('report_imports')
       .select('id,report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at,raw_text,validation_notes')
@@ -658,6 +683,36 @@ async function refreshDailyRows() {
     if (button) { button.disabled = false; button.textContent = 'Atualizar dados'; }
   }
 }
+document.getElementById('authForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const note = document.getElementById('authNote');
+  const button = document.getElementById('authSignIn');
+  if (button) { button.disabled = true; button.textContent = 'Entrando…'; }
+  if (note) note.textContent = 'Validando usuário…';
+  try {
+    const {error} = await sb.auth.signInWithPassword({
+      email: document.getElementById('authEmail').value.trim(),
+      password: document.getElementById('authPassword').value
+    });
+    if (error) throw error;
+    document.getElementById('authPassword').value = '';
+    if (note) note.textContent = 'Autenticado. Verificando autorização para os relatórios…';
+    await refreshDailyRows();
+  } catch (error) {
+    if (note) note.textContent = 'Não foi possível entrar: ' + (error?.message || 'erro desconhecido');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Entrar'; }
+  }
+});
+document.getElementById('authSignOut')?.addEventListener('click', async () => {
+  const note = document.getElementById('authNote');
+  await sb.auth.signOut();
+  if (note) note.textContent = 'Sessão encerrada.';
+  await refreshDailyRows();
+});
+sb.auth.onAuthStateChange((_event, _session) => {
+  window.setTimeout(() => refreshDailyRows(), 0);
+});
 document.getElementById('refreshDashboard')?.addEventListener('click', refreshDailyRows);
 document.getElementById('importBtn')?.addEventListener('click', () => {
   setStatus('A importação manual abre um formulário para colar o texto recebido do Monitorbot. Ela não inicia a coleta automática.');
