@@ -426,6 +426,18 @@ async def main():
         combined = (norm(latest.message) + " " + " ".join(buttons(latest))).lower()
 
         if mode == "daily_yesterday":
+            # First try to recover a historical report for the missing date already present in Telegram.
+            # At this stage we are at the report menu, before requesting a new daily report.
+            target_missing_date = (local_now.date() - timedelta(days=2)).isoformat()
+            historical = await find_historical_daily_report(client, entity, target_missing_date)
+            if historical:
+                historical_period = target_missing_date
+                output = save_report(historical, report_type, historical_period)
+                persist_to_supabase(output, report_type, historical_period, local_now)
+                print(f"HISTORICAL_REPORT_RECOVERED report_type={report_type} requested_period={historical_period} message_id={historical.id}")
+                # Do not navigate further in this run; this run was dedicated to restoring the missing day.
+                return 0
+            print(f"HISTORICAL_REPORT_NOT_FOUND target_date={target_missing_date}; proceeding with normal daily collection.")
             # Avoid stale monthly/year-selection prompts returned from old bot history.
             latest_text = norm(latest.message).lower()
             if (("ano atual" in latest_text and "ano anterior" in latest_text)
