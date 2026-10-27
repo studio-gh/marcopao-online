@@ -120,7 +120,9 @@
       </select>
     </div>
     <div class="filter-field"><label for="periodFilter">PERÍODO</label>
-      <select id="periodFilter"><option value="all">Todos / conforme relatório</option><option value="today">Hoje</option><option value="month">Mês atual</option><option value="custom">Data informada</option></select>
+      <select id="periodFilter"><option value="all">Último dia disponível</option><option value="today">Hoje</option><option value="month">Mês atual</option><option value="custom">Data informada</option></select>
+    </div>
+    <div class="filter-field" id="reportDateFilterWrap" hidden><label for="reportDateFilter">DATA DA VISÃO DIÁRIA</label><input id="reportDateFilter" type="date">
     </div>
     <div class="filter-field"><label for="branchFilter">FILIAL</label>
       <select id="branchFilter"><option value="all">Todas as filiais</option><option value="current">Filial do relatório carregado</option></select>
@@ -369,27 +371,33 @@ function renderDailyComparison(){
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
  const selectedBranch=document.getElementById('branchFilter').value;
- const ready=dailyReports
+ const period=document.getElementById('periodFilter').value;
+ const customDate=document.getElementById('reportDateFilter')?.value||'';
+ let ready=dailyReports
   .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)&&(selectedBranch==='all'||r.branch===selectedBranch))
   .sort((a,b)=>a.date.localeCompare(b.date));
+ if(period==='today'){
+  const todayIso=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+  ready=ready.filter(r=>r.date===todayIso);
+ }else if(period==='custom'&&customDate){
+  ready=ready.filter(r=>r.date===customDate);
+ }
  const today=ready[ready.length-1]||null;
  if(!today){
   empty.style.display='block';grid.style.display='none';
-  setText('dailyCompareSubtitle','A comparação usa relatórios reais da filial selecionada.');
-  empty.textContent='Nenhum relatório diário disponível. A comparação exige dois relatórios consecutivos da mesma filial. Nenhum dado fictício será exibido.';
+  const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':'';
+  setText('dailyCompareSubtitle','Comparação diária da filial selecionada.');
+  empty.textContent='Nenhum relatório diário encontrado'+suffix+'. A visão mensal não será usada como substituta; são necessários dados diários reais.';
   return;
  }
- const currentDate=new Date(today.date+'T00:00:00Z');
- currentDate.setUTCDate(currentDate.getUTCDate()-1);
- const expectedPrevDate=currentDate.toISOString().slice(0,10);
- const prev=ready.filter(r=>r.branch===today.branch&&r.date===expectedPrevDate).sort((a,b)=>(b.importedAt||'').localeCompare(a.importedAt||''))[0]||null;
+ const dateObj=new Date(today.date+'T00:00:00Z');
+ dateObj.setUTCDate(dateObj.getUTCDate()-1);
+ const expectedPrevDate=dateObj.toISOString().slice(0,10);
+ const prev=ready.filter(r=>r.branch===today.branch&&r.date===expectedPrevDate)
+  .sort((a,b)=>(b.importedAt||'').localeCompare(a.importedAt||''))[0]||null;
  grid.style.display='grid';
- if(!prev){
-  empty.style.display='block';
-  empty.textContent='Relatório de '+today.date+' carregado. Ainda não há relatório da mesma filial para o dia imediatamente anterior ('+expectedPrevDate+'). A variação será calculada quando esse dia também estiver importado.';
- }else{
-  empty.style.display='none';
- }
+ empty.style.display=prev?'none':'block';
+ if(!prev)empty.textContent='Relatório de '+today.date+' carregado. Falta o relatório de '+expectedPrevDate+' da mesma filial; a comparação ficará incompleta até a coleta desse dia.';
  const reviewNeeded=[today,prev].filter(Boolean).some(r=>r.status==='needs_review');
  setText('dailyCompareSubtitle',today.branch+' · '+today.date+(prev?' comparado com '+prev.date:'; falta '+expectedPrevDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
  setText('dailyTodayTotal',money(today.metrics.total));
@@ -403,9 +411,7 @@ function renderDailyComparison(){
   setText('dailyDeltaCaption',delta>=0?'Faturamento acima do dia anterior':'Faturamento abaixo do dia anterior');
   setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
  }else{
-  setText('dailyDelta','—');
-  setText('dailyDeltaCaption','Aguardando relatório do dia anterior');
-  setText('dailyDeltaPct','—');
+  setText('dailyDelta','—');setText('dailyDeltaCaption','Aguardando relatório do dia anterior');setText('dailyDeltaPct','—');
  }
  setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
  setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
@@ -415,6 +421,8 @@ function renderDailyComparison(){
 
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
+ const dateWrap=document.getElementById('reportDateFilterWrap');
+ if(dateWrap)dateWrap.hidden=!(selectedType==='sale-day'&&period==='custom');
  const query=document.getElementById('searchFilter').value.trim().toLocaleLowerCase('pt-BR');
  const report=importedReports[selectedType];
  const dailyMode=selectedType==="sale-day";
@@ -483,6 +491,7 @@ document.getElementById('applyBtn').onclick=()=>{
 document.getElementById('reportType').addEventListener('change',e=>{selectedType=e.target.value;applyFilters();if(selectedType==='sales-group')renderGroupBars();});
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
+document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
 document.getElementById('branchFilter').addEventListener('change',applyFilters);
 document.getElementById('searchFilter').addEventListener('input',applyFilters);
 document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('branchFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
