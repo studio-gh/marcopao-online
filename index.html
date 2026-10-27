@@ -611,13 +611,7 @@ window.setSupabaseDailyReports = function(rows){
  else{try{dailyReports=JSON.parse(localStorage.getItem('marcopao.dailyReports')||'[]')}catch(_){dailyReports=[]}}
  if(selectedType==='sale-day')applyFilters();
 };
-window.setSupabaseReports = function(rows){
- const list=rows||[];
- window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
- const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
- for(const row of list){if(!types[row.report_type])continue;const k=types[row.report_type];importedReports[k]={text:row.raw_text||'',date:row.period_end||row.report_date||'',branch:row.branch_name_raw||''};}
- if(selectedType==='sale-month')applyFilters();
-};
+
 render();renderGroupBars();applyFilters();
 </script>
 
