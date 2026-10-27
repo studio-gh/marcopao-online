@@ -249,9 +249,9 @@ def parse_report_data(report_type, raw):
             if revenue is not None:
                 entry["value"] = revenue
             unit_price = parse_price(block_text, [
-                r"Preço\s*M[eé]dio(?:\s+Venda)?\s*R?\$\s*:?\s*([\d.]+,\d{2})",
-                r"Preço\s*Atual\s*R\$\s*:?\s*([\d.]+,\d{2})",
-                r"Preço\s*R\$\s*:?\s*([\d.]+,\d{2})",
+                r"Preço\s*M[eé]dio(?:\s+Venda)?\s*:?\s*R\$\s*([\d.]+,\d{2})",
+                r"Preço\s*Atual\s*:?\s*R\$\s*([\d.]+,\d{2})",
+                r"Preço\s*:?\s*R\$\s*([\d.]+,\d{2})",
             ])
             if unit_price is not None:
                 entry["unit_price"] = unit_price
