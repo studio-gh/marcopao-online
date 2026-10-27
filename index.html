@@ -327,6 +327,37 @@ function render(){
 }
 function parseMoney(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseFloat(m[1].replace(/\./g,'').replace(',','.'))}return fallback}
 function parseCount(text,patterns,fallback){for(const p of patterns){const m=text.match(p);if(m)return parseInt(m[1].replace(/\./g,''),10)}return fallback}
+function parseMonthlyMetrics(text){
+ const moneyMatch=(re)=>{const m=text.match(re);return m?Number(m[1].replace(/\\./g,"").replace(",", ".")):null};
+ const intMatch=(re)=>{const m=text.match(re);return m?parseInt(m[1].replace(/\\./g,""),10):null};
+ return {
+  total:moneyMatch(/(?:Venda Total do dia|Total de vendas nos Pdvs|Total)\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  cash:moneyMatch(/Dinheiro\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  pix:moneyMatch(/PIX\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  posCredit:moneyMatch(/POS Crédito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  posDebit:moneyMatch(/POS Débito\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  tef:moneyMatch(/TEF\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  ticketMethod:moneyMatch(/TICKET\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  coupons:intMatch(/Quantidades?\\s+de\\s+Cupons\\s*:?\\s*([\\d.]+)/i),
+  ticket:moneyMatch(/Ticket Médio\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  cancelCoupons:intMatch(/Qtd de Cupons cancelados\\s*:?\\s*([\\d.]+)/i),
+  cancelItems:moneyMatch(/Vlr Total Item Canc\\.\\s*:?\\s*R?\\$?\\s*([\\d.]+,\\d{2})/i),
+  branch:((text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]||"").split(/\\r?\\n/)[0].trim()
+ };
+}
+function showMonthlyReport(row){
+ const t=row.totals||{}, m={
+  total:Number(t.total),cash:Number(t.dinheiro),pix:Number(t.pix),tef:Number(t.tef),
+  posCredit:Number(t.pos_credito||0),posDebit:Number(t.pos_debito||0),ticketMethod:Number(t.ticket_pagamento||0),
+  coupons:Number(t.cupons||0),ticket:Number(t.ticket_medio||0),cancelCoupons:Number(t.cupons_cancelados||0),
+  cancelItems:Number(t.valor_itens_cancelados||0),branch:row.branch_name_raw||base.branch,date:"01/10/2026 a 31/10/2026",
+  imported:row.imported_at?new Date(row.imported_at).toLocaleString("pt-BR"):""
+ };
+ data=m;render();
+ setText('reportPeriod','ACUMULADO DO MÊS · 01/10/2026 A 31/10/2026');
+ setText('importInfo','Fonte: relatório 2 do Monitorbot · importado em '+(m.imported||'data não registrada')+' · status: '+(row.status||'needs_review'));
+ setText('filterStatus','Relatório 2 carregado do Supabase · total informado R$ '+m.total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' · status '+(row.status||'needs_review')+'. Valores de venda acumulada não são somados aos relatórios diários.');
+}
 function parseReport(text,date){
  const d={...data};
  d.cash=parseMoney(text,[/Dinheiro\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cash);
@@ -489,6 +520,15 @@ function applyFilters(){
      raw.textContent=filtered.length?filtered.join('\\n'):'Nenhuma linha corresponde à busca.';
    }
    setText('filterStatus',hasText?reportNames[selectedType]+' · busca aplicada ao texto bruto.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
+ } else if(selectedType==='sale-month' && window.monthlyReportRow){
+   document.querySelector('.hero').classList.remove('hidden-by-filter');
+   document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
+   document.querySelector('.showcase-grid').classList.remove('hidden-by-filter');
+   document.querySelector('.showcase-grid .panel:nth-child(2)').classList.add('hidden-by-filter');
+   document.querySelector('.showcase-grid .panel:first-child').classList.add('hidden-by-filter');
+   document.querySelector('.group-detail-panel').classList.add('hidden-by-filter');
+   document.getElementById('dailyCompareView').classList.add('hidden-by-filter');
+   showMonthlyReport(window.monthlyReportRow);
  } else {
    document.querySelector('.hero').classList.remove('hidden-by-filter');
    document.querySelectorAll('.section-head,.grid,.panels,.notice').forEach(el=>el.classList.remove('hidden-by-filter'));
@@ -535,6 +575,17 @@ document.getElementById('searchFilter').addEventListener('input',applyFilters);
 document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
 function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
+window.setSupabaseReports = function(rows){
+ const list=rows||[];
+ window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
+ const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
+ for(const row of list){
+  if(!types[row.report_type]) continue;
+  const k=types[row.report_type];
+  importedReports[k]={text:row.raw_text||'',date:row.period_end||row.report_date||'',branch:row.branch_name_raw||''};
+ }
+ if(selectedType==='sale-month')applyFilters();
+};
 window.setSupabaseDailyReports = function(rows){
  const remote=(rows||[]).map(row=>{
   const t=row.totals||{};
