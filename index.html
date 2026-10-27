@@ -329,7 +329,7 @@ function renderGroupDetail(){
  const group=groupSales.find(g=>g.name===name);
  if(!group){
    document.getElementById('groupDetailSummary').innerHTML='<div class="empty-state">Os indicadores por grupo aparecerão aqui após a importação do Relatório 12.</div>';
-   document.getElementById('groupTopProducts').innerHTML='<div class="group-top-empty"><strong>Produtos líderes</strong><span>Aguardando o Relatório 13 validado para cruzar produto e grupo.</span></div>';
+   document.getElementById('groupTopProducts').innerHTML='<div class="group-top-empty"><strong>Produtos líderes</strong><span>Aguardando o Relatório 13 importado para cruzar produto e grupo.</span></div>';
    const foot=document.getElementById('groupDetailFoot');
    if(foot)foot.textContent='Nenhum dado de grupo foi importado para o dashboard.';
    return;
@@ -337,12 +337,16 @@ function renderGroupDetail(){
  const groupedSalesTotal=groupSales.reduce((sum,g)=>sum+g.value,0);
  const sorted=[...groupSales].sort((a,b)=>b.value-a.value);
  const topThree=sorted.slice(0,3).reduce((sum,g)=>sum+g.value,0);
- const bestAverage=[...groupSales].sort((a,b)=>b.average-a.average)[0];
- const lowestAverage=[...groupSales].sort((a,b)=>a.average-b.average)[0];
- document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação na soma dos grupos</span><br><strong>${pct(group.value,groupedSalesTotal)}</strong></div><div><span>Preço médio informado</span><br><strong>${money(group.average)}</strong></div><div><span>Quantidade informada</span><br><strong>${num(group.quantity)}</strong></div><div><span>Concentração dos 3 maiores grupos</span><br><strong>${pct(topThree,groupedSalesTotal)}</strong><small>PADARIA, LANCHONETE e BEBIDAS</small></div><div><span>Maior preço médio informado</span><br><strong>${bestAverage.name}</strong><small>${money(bestAverage.average)} por unidade de medida do relatório</small></div><div><span>Menor preço médio informado</span><br><strong>${lowestAverage.name}</strong><small>${money(lowestAverage.average)} por unidade de medida do relatório</small></div>`;
- document.getElementById('groupTopProducts').innerHTML=[1,2].map(n=>`<div class="group-top-empty"><strong>${n===1?'1º produto líder':'2º produto líder'} · ${name}</strong><span>O ranking por faturamento será preenchido quando houver dados detalhados por produto e grupo no mesmo período e filial.</span></div>`).join('');
+ const averages=groupSales.filter(g=>Number.isFinite(Number(g.average)));
+ const bestAverage=averages.length?[...averages].sort((a,b)=>Number(b.average)-Number(a.average))[0]:null;
+ const lowestAverage=averages.length?[...averages].sort((a,b)=>Number(a.average)-Number(b.average))[0]:null;
+ const safeName=escapeCardText(name);
+ const averageDisplay=Number.isFinite(Number(group.average))?money(Number(group.average)):'Não informado';
+ const quantityDisplay=Number.isFinite(Number(group.quantity))?num(Number(group.quantity)):'Não informada';
+ document.getElementById('groupDetailSummary').innerHTML=`<div><span>Faturamento do grupo</span><br><strong>${money(group.value)}</strong></div><div><span>Participação na soma dos grupos</span><br><strong>${pct(group.value,groupedSalesTotal)}</strong></div><div><span>Preço médio informado</span><br><strong>${averageDisplay}</strong></div><div><span>Quantidade informada</span><br><strong>${quantityDisplay}</strong></div><div><span>Concentração dos 3 maiores grupos</span><br><strong>${pct(topThree,groupedSalesTotal)}</strong><small>Calculado sobre a soma dos grupos importados</small></div><div><span>Maior preço médio informado</span><br><strong>${bestAverage?escapeCardText(bestAverage.name):'Não informado'}</strong><small>${bestAverage?money(Number(bestAverage.average))+' por unidade de medida do relatório':'Campo ausente no relatório importado'}</small></div><div><span>Menor preço médio informado</span><br><strong>${lowestAverage?escapeCardText(lowestAverage.name):'Não informado'}</strong><small>${lowestAverage?money(Number(lowestAverage.average))+' por unidade de medida do relatório':'Campo ausente no relatório importado'}</small></div>`;
+ document.getElementById('groupTopProducts').innerHTML=[1,2].map(n=>`<div class="group-top-empty"><strong>${n===1?'1º produto líder':'2º produto líder'} · ${safeName}</strong><span>O ranking por produto e grupo será preenchido quando o relatório trouxer esse cruzamento explicitamente.</span></div>`).join('');
  const foot=document.getElementById('groupDetailFoot');
- if(foot)foot.textContent='Fonte: relatório validado da mesma filial e período.';
+ if(foot)foot.textContent='Fonte: relatório importado do Monitorbot; conferir status antes de orientar compras.';
 }
 function render(){
  setText('heroTotal',money(data.total));setText('heroTicket',money(data.ticket));setText('coupons',num(data.coupons));setText('cash',money(data.cash));setText('pix',money(data.pix));setText('tef',money(data.tef));
