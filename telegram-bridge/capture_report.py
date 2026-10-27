@@ -466,6 +466,7 @@ REPORT_MODES = {
 REPORT_TYPE_TO_OPTION = {value: key for key, value in REPORT_OPTIONS.items()}
 # [collect-report] Re-run serialized collection after ticket-average and report-13 navigation fixes.
 # [collect-report:ticket_average] Retry only the ticket-average report after chunk-reassembly fix.
+# [collect-report:ticket_average] Retry after relaxing ticket-average row matching.
 # Trigger again after workflow condition was widened to accept typed report selectors.
 # [collect-report] Run the serialized live collector after parser regression tests pass.
 
