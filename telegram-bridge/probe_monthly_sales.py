@@ -89,7 +89,7 @@ async def main():
         print(f"CURRENT_STATE: {text[:300]!r}")
         low = text.lower()
 
-        if ("venda de hoje" in low or "venda de hoje" in low.replace("opção da ", "")) and "dia anterior" in low:
+        if "venda de hoje" in low and "dia anterior" in low:
             print("STATE_CLASSIFIED: daily-sales submenu detected; documented menu footer says 0 returns to branch selection.")
             cur = await send_and_wait(client, entity, "0", "return to branch selection")
             if not cur:
