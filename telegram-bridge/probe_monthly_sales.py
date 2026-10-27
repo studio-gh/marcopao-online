@@ -70,7 +70,14 @@ async def main():
         # Do not send arbitrary digits while the year-choice question is active.
         if ("ano atual" in low and "ano anterior" in low) or ("ano atual" in " ".join(b).lower() and "ano anterior" in " ".join(b).lower()):
             print("YEAR_CHOICE_PROMPT_DETECTED: bot is waiting for Ano Atual or Ano Anterior.")
-            print("SAFE_STOP: no option sent. This is not the monthly-report menu.")
+            # First test is October 2026, so choose the named current-year option.
+            cur = await send_choice(client, entity, cur, "Ano Atual", "select current year for October 2026 test")
+            if not cur: return 7
+            text = norm(cur.message); low = text.lower()
+            print(f"STATE_AFTER_YEAR: {text[:500]!r}")
+            b = labels(cur)
+            if b: print("BUTTONS: " + " | ".join(b[:20]))
+            print("SAFE_STOP: captured next state only; no report or period guessed.")
             return 0
 
         # Recover only if the daily-sales submenu is explicitly current.
