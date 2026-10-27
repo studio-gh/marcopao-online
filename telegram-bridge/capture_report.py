@@ -600,6 +600,16 @@ def is_main_menu(text):
     low = norm(text).lower()
     return "venda do dia" in low and "venda acumulada mês" in low and "top 100" in low
 
+
+def is_report_menu_message(message):
+    """Recognize the report keyboard even when Bellabyte repeats its branch welcome text."""
+    text = message.message or ""
+    if is_main_menu(text):
+        return True
+    labels = {label.strip().lower() for label in buttons(message)}
+    required = {"1", "2", "3", "4", "10", "12", "13"}
+    return "menu inicial" in labels and required.issubset(labels)
+
 def daily_report_date_mismatch(text, mode):
     """Detect the known dangerous case: 'today' sales returned when yesterday was requested."""
     return mode == "daily_yesterday" and "venda de hoje" in norm(text).lower()
@@ -680,7 +690,7 @@ async def recover_menu(client, entity, current):
     current = await latest_incoming(client, entity) or current
     text = norm(current.message)
     low = text.lower()
-    if is_main_menu(text):
+    if is_report_menu_message(current):
         return current
 
     branch_prompt = "qual filial deseja se conectar" in low or "digite qual filial" in low
@@ -704,9 +714,9 @@ async def recover_menu(client, entity, current):
         current = await latest_incoming(client, entity) or current
         text = norm(current.message)
 
-    if not is_main_menu(text):
+    if not is_report_menu_message(current):
         history = await client.get_messages(entity, limit=40)
-        menus = [m for m in history if not m.out and is_main_menu(m.message)]
+        menus = [m for m in history if not m.out and is_report_menu_message(m)]
         # A stale menu from before login/reset must not silently be used.
         current_id = getattr(current, "id", 0) or 0
         menus = [m for m in menus if m.id >= current_id]
