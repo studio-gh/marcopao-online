@@ -704,21 +704,6 @@ async function refreshDailyRows() {
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '. Relatórios mensais e de produtos aguardam endpoint seguro próprio.');
     return true;
-    lastSuccessfulSyncAt = new Date().toISOString();
-    if (root) root.dataset.state = 'ok';
-    if (state) state.textContent = 'Conectado ao Supabase';
-    const latestReport = rows.reduce((latest, row) => {
-      const stamp = row.imported_at ? new Date(row.imported_at) : null;
-      return stamp && (!latest || stamp > latest) ? stamp : latest;
-    }, null);
-    const latestReportEl = document.getElementById('lastReportTime');
-    if (latestReportEl) latestReportEl.textContent = latestReport ? formatClock(latestReport) : 'Nenhum relatório importado';
-    window.setSupabaseReports(rows);
-    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
-    const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
-    const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
-    setStatus('Supabase: ' + dailyCount + ' relatório(s) diário(s), ' + monthlyCount + ' mensal(is). Consulta às ' + new Date().toLocaleTimeString('pt-BR') + '.');
-    return true;
   } catch (error) {
     console.error('Marcopão: falha ao consultar Supabase', error);
     if (root) root.dataset.state = 'error';
