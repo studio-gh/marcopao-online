@@ -300,7 +300,8 @@ function renderProductionRows(entries, reportRow){
   return '<div class="product-row"><span class="rank-num">'+String(index+1).padStart(2,'0')+'</span><div class="product-info"><strong>'+escapeCardText(item.name)+'</strong><span>'+qty+'</span>'+group+'</div><strong>'+money(Number(item.value))+'</strong></div>';
  }).join('');
  const foot=root.parentElement.querySelector('.showcase-foot');
- if(foot)foot.textContent='Fonte: '+(reportRow?.report_type==='top_value'?'relatório 3 (Top 100 por valor)':'relatório 13 (vendas de produto por grupo)')+' · '+rows.length+' produtos com faturamento identificado · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
+ const review=reportRow?.status==='validated'?'validado':'pendente de conferência';
+ if(foot)foot.textContent='Fonte: '+(reportRow?.report_type==='top_value'?'relatório 3 (Top 100 por valor)':'relatório 13 (vendas de produto por grupo)')+' · '+rows.length+' produtos com faturamento identificado · '+review+' · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
 }
 function formatReportDate(value){
  return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
@@ -625,7 +626,7 @@ function applyFilters(){
    const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
    raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
   }
-  setText('filterStatus',hasText?reportNames[selectedType]+' · busca aplicada ao texto bruto.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
+  setText('filterStatus',hasText?reportNames[selectedType]+' · '+(report.status==='validated'?'validado':'pendente de conferência')+' · '+(report.entryCount||0)+' linhas estruturadas. Busca aplicada aos campos importados.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
   return;
  }
  document.querySelector('.hero').classList.remove('hidden-by-filter');
@@ -679,7 +680,18 @@ window.setSupabaseReports = function(rows){
   if(!types[row.report_type])continue;
   const key=types[row.report_type];
   // The public summary view intentionally contains no raw Telegram text.
-  importedReports[key]={text:'',date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||''};
+  const entries=Array.isArray(row.totals?.entries)?row.totals.entries:[];
+  const formatted=entries.map(item=>{
+   const bits=[];
+   if(item.rank!=null)bits.push(String(item.rank)+'.');
+   if(item.name)bits.push(String(item.name));
+   if(item.value!=null&&Number.isFinite(Number(item.value)))bits.push('Faturamento '+money(Number(item.value)));
+   if(item.quantity!=null&&Number.isFinite(Number(item.quantity)))bits.push('Quantidade '+Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:3})+(item.unit?' '+item.unit:''));
+   const average=item.average??item.unit_price;
+   if(average!=null&&Number.isFinite(Number(average)))bits.push('Preço médio '+money(Number(average)));
+   return bits.join(' · ');
+  }).filter(Boolean).join('\n');
+  importedReports[key]={text:formatted,date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||'',status:row.status||'needs_review',entryCount:entries.length};
  }
  window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
  const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
