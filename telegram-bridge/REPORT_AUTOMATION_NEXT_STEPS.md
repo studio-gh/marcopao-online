@@ -1,29 +1,49 @@
-# Marcopão report automation: validation and rollout
+# Marcopão report automation: current state and rollout
 
-## Verified from the October 2026 probe
+## Verified
 
-- The Telegram bot returned the October 2026 monthly sales summary.
-- The probe captured the report text from Telegram history and then answered `Não` to the card-details prompt.
-- The bot returned to its main report menu.
-- The probe did not write to Supabase.
-- A green GitHub Actions run means the script exited successfully; it does not, by itself, mean that a report was parsed, validated, or stored.
+- The Bellabyte bot has successfully returned the October 2026 monthly-sales report for `MARCOPAO LANCHONETE E PANIFICACAO LTDA`.
+- The main report flow is: select branch, choose report, choose year/month where applicable, then answer `Não` to the optional card details prompt.
+- The report's raw text can be preserved in Supabase with a SHA-256 fingerprint. The collector now stores records with status `needs_review`; it does not mark them validated automatically.
+- The public dashboard has a dedicated daily comparison panel and no longer substitutes its previous hard-coded example sales totals. Its daily screen starts as the default view.
+- The dashboard is a static GitHub Pages site and is not yet reading reports live from Supabase. It must not be given public read access to confidential sales data.
 
-## Safe next steps
+## Current collector
 
-1. Persist the exact bot response as a workflow artifact (UTF-8 JSON, with message IDs, timestamps, direction, requested period, and raw text). Do not print credentials or Telegram session strings to logs.
-2. Parse the saved response into a structured JSON artifact. Preserve the original text and report metadata alongside parsed values.
-3. Validate arithmetic and semantic assumptions before database import:
-   - The October summary's payment-method values sum to the reported total.
-   - The report contains cancellation and unfinished-sale figures that must not be silently merged with completed sales.
-   - Confirm whether the report's monthly total is month-to-date or a closed-month figure. A query run during October must not be labeled as a final closed month without evidence.
-4. Add automated tests for Brazilian currency parsing, repeated totals in separate sections, missing fields, duplicate snapshots, and payment total reconciliation.
-5. Only after artifact review, import with idempotency based on a content hash and preserve raw text. Keep report status as `review_required` until validation passes.
-6. Scale the collection to the historical periods only after the October end-to-end test is stable. Record unavailable periods as unavailable; never synthesize values.
+Workflow: [Marcopão report collector](https://github.com/studio-gh/marcopao-online/actions/workflows/monitorbot-monthly-probe.yml)
 
-## Menu navigation learned from the probe
+- Manual options: `daily_yesterday` and `monthly_october`.
+- Schedule: daily at 03:10 UTC (00:10 in America/Sao_Paulo) to request the previous day's sales.
+- Navigation is state-aware: it uses the bot's documented `0` reset for an unexpected state, then reselects the branch and confirms the menu before proceeding.
+- Bot report contents are redacted from public GitHub Actions logs.
+- The report is stored in `public.report_imports` with `status='needs_review'`, the raw text, parsed totals, a content hash, and validation warnings. No row is promoted to `validated` by the collector.
 
-The bot's conversation is stateful. It can ask for branch, report, year (Ano Atual/Ano Anterior), month, and whether to display card details. A workflow must inspect the latest bot prompt and select a matching visible option; it must not send numeric choices blindly. If the conversation is in an unexpected state, send `0` to return to branch selection, then re-establish the state from the new bot reply. If the bot does not reply after a valid choice, capture diagnostics and stop rather than guessing.
+## One-time secret needed
 
-## Current release gate
+In GitHub repository **Settings → Secrets and variables → Actions**, add:
 
-No historical backfill and no production database writes until a complete artifact exists and the parser tests pass.
+- Name: `SUPABASE_SERVICE_ROLE_KEY`
+- Value: the project's Supabase **service_role** secret/JWT key, not a publishable/anon key.
+
+This privileged key must remain in GitHub Secrets only. Never commit it, paste it into chat, or print it in workflow logs. The workflow stops before sending any Telegram messages if this secret is missing.
+
+## Immediate test
+
+1. Add the secret above.
+2. Open the collector workflow and run it manually with `daily_yesterday`.
+3. Review the summary logs only. The raw report body is redacted from public logs.
+4. Verify the new `report_imports` row in Supabase and its `needs_review` status before using the figures.
+5. A genuine day-over-day comparison requires two consecutive daily report records. The first collection alone cannot produce a real comparison.
+
+## Validation rules
+
+- Keep amounts from the bot as received. Never silently reconcile totals.
+- Warn if payment-method totals disagree with the reported total.
+- Keep cancellation, unfinished-sale and completed-sale figures in separate fields.
+- A current-month query must not be labelled a final closed month without evidence.
+- Use idempotency from `content_sha256`; do not duplicate the same report.
+- The 46-month historical backfill remains a later phase. Unavailable historical periods must stay explicitly unavailable.
+
+## Access-control gate for the dashboard
+
+The repository and GitHub Pages site are public. Do not add anonymous SELECT policies to financial tables. Before rendering live Supabase data in the dashboard, wire an authenticated, allowlisted read path (Supabase Auth/RLS or a protected Edge Function). Until then, the daily comparison panel displays an empty state instead of fabricated or unapproved values.
