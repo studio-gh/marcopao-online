@@ -224,7 +224,7 @@ let importedReports={
 };
 let dailyReports = [];
 try { dailyReports = JSON.parse(localStorage.getItem("marcopao.dailyReports") || "[]"); } catch (_) { dailyReports = []; }
-let selectedType="sale-month";
+let selectedType="sale-day";
 const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n||0);
 const num=n=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n||0);
 const pct=(n,t)=>t?((n/t)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'0%';
