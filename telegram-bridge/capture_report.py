@@ -557,7 +557,7 @@ def find_report_payload(replies, report_type):
         for index, message in enumerate(replies):
             text = message.message or ""
             low = norm(text).lower()
-            if report_message_has_data(text) and re.search(r"preço\s*m[eé]dio|preco\s*medio|preço\s*:", low, re.IGNORECASE):
+            if report_message_has_data(text) and re.search(r"preço|preco|quantidade", low, re.IGNORECASE):
                 start_index = index
                 break
     if start_index is None:
@@ -958,7 +958,7 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
     ticket_average_rows = (
         report_type == "ticket_average"
         and report_message_has_data(report_text)
-        and re.search(r"preço\s*m[eé]dio|preco\s*medio", report_text, re.IGNORECASE)
+        and re.search(r"preço|preco", report_text, re.IGNORECASE)
     )
     if report_type not in {"sale_day", "monthly_sales"} and not (
         report_title_match(report_text, report_type)
