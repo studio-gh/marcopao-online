@@ -85,7 +85,7 @@
 .auth-top-button{font-size:12px}
 @media(max-width:520px){.auth-card{padding:20px}.auth-actions{grid-template-columns:1fr}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
 
-.product-category-chip{display:inline-block!important;width:max-content;border-radius:6px;padding:3px 7px;background:#eef2e9;color:#385648;font-size:10px;font-weight:700;letter-spacing:.01em}.product-info .product-category-chip{margin-top:2px}</style>
+.product-category-chip{display:inline-block!important;width:max-content;border-radius:6px;padding:3px 7px;background:#eef2e9;color:#385648;font-size:10px;font-weight:700;letter-spacing:.01em}.product-info .product-category-chip{margin-top:2px}.trust-banner{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border:1px solid #e8d4a8;background:#fff8e8;color:#77521d;border-radius:13px;font-size:12px;line-height:1.5;margin:0 0 12px}.trust-banner strong{display:block;margin-bottom:2px}.trust-banner[data-level="blocked"]{background:#fff0eb;border-color:#efc5b9;color:#8b3525}.trust-banner[data-level="ok"]{background:#edf6ee;border-color:#cfe3d1;color:#28563d}.trust-banner .trust-icon{font-size:16px;line-height:1}</style>
 </head>
 <body>
 
@@ -129,6 +129,7 @@
     <div class="raw-results" id="otherReportRaw" style="display:none"></div>
   </section>
 
+  <div id="trustBanner" class="trust-banner" data-level="blocked" role="status"><span class="trust-icon">!</span><div><strong>Dados aguardando validação</strong><span>Valores importados ainda não passaram pelas verificações de consistência. Não use como números oficiais até a conferência.</span></div></div>
   <section class="report-view" id="structuredReportView" aria-live="polite">
     <div class="insight-header"><div><span class="eyebrow" style="color:var(--muted);opacity:1">INTELIGÊNCIA DE VENDAS</span><h2 id="structuredTitle">Ranking de produtos</h2><p id="structuredSubtitle" class="panel-sub"></p></div><span class="tag" id="structuredStatus">PENDENTE DE CONFERÊNCIA</span></div>
     <div class="insight-kpis" id="structuredKpis"></div><div class="insight-callout" id="structuredInsight"></div><div id="structuredChart" class="structured-chart"></div>
@@ -699,7 +700,11 @@ function toast(s){const t=document.getElementById('toast');t.textContent=s;t.cla
 window.setSupabaseReports = function(rows){
  const list=rows||[];
  window.structuredReports={};
- window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
+ const trustRows=list.filter(r=>r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''));
+ const globalTrusted=trustRows.length>0&&trustRows.every(r=>r.status==='validated');
+ const trustBanner=document.getElementById('trustBanner');
+ if(trustBanner){trustBanner.dataset.level=globalTrusted?'ok':'blocked';trustBanner.innerHTML=globalTrusted?'<span class="trust-icon">✓</span><div><strong>Dados validados</strong><span>Os relatórios visíveis passaram pelo status de validação do sistema.</span></div>':'<span class="trust-icon">!</span><div><strong>Dados aguardando validação</strong><span>Há importações pendentes de conferência. Os indicadores são exploratórios e não devem orientar compras, produção ou fechamento financeiro.</span></div>';}
+ window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
  for(const row of list){
   if(!types[row.report_type])continue;
@@ -722,7 +727,7 @@ window.setSupabaseReports = function(rows){
   window.structuredReports[key]={...rec,entries,reportType:row.report_type,periodStart:row.period_start||'',periodEnd:row.period_end||'',importedAt:row.imported_at||'',rawText:entries.map(item=>item.raw||'').join('\\n\\n')};
  }
  window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
- const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
+ const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status==='validated').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
  const groupRow=latestByType('sales_by_group');
  const productGroupRow=latestByType('products_by_group');
  const valueRankRow=latestByType('top_value');
@@ -756,7 +761,7 @@ window.setSupabaseDailyReports = function(rows){
   return {date:String(date).slice(0,10),branch:row.branch_name_raw||'Filial não identificada',
    metrics:{total:t.total==null?null:Number(t.total),coupons:t.cupons==null?null:Number(t.cupons),ticket:t.ticket_medio==null?null:Number(t.ticket_medio)},
    cardDetails:t.card_details||null,status:row.status||'needs_review',source:'supabase',importedAt:row.imported_at||''};
- }).filter(row=>row.date&&Number.isFinite(row.metrics.total));
+ }).filter(row=>row.date&&row.status==='validated'&&Number.isFinite(row.metrics.total));
  remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
  const latestPerDay=new Map();for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
  const uniqueDailyReports=[...latestPerDay.values()];
