@@ -433,12 +433,12 @@ async def finish_card_prompt(client, entity):
 
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
-    if mode not in {"daily_yesterday", "monthly_october"}:
+    if mode not in {"daily_yesterday", "monthly_accumulated"}:
         print("INVALID_REPORT_MODE")
         return 2
     report_type = "sale_day" if mode == "daily_yesterday" else "monthly_sales"
     local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else "2026-10"
+    requested_period = (local_now.date() - timedelta(days=1)).isoformat() if mode == "daily_yesterday" else monthly_period(local_now.date().isoformat())
 
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
@@ -541,7 +541,7 @@ async def main():
                 if "selecione o mês" in prompt or ("mês" in prompt and visible):
                     candidates = [label for label in buttons(latest) if "outubro" in label.lower()]
                     if candidates:
-                        latest, month_replies = await send_choice(client, entity, latest, candidates[0], "select October for historical daily report")
+                        latest, month_replies = await send_choice(client, entity, latest, candidates[0], "select month for historical daily report")
                         if not month_replies:
                             return 19
                         replies.extend(month_replies)
