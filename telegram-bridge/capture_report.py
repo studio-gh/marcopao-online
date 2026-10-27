@@ -195,6 +195,10 @@ def persist_to_supabase(report_file, report_type, requested_period, queried_at):
         "validation_notes": notes,
         "totals": totals,
     }
+    card_details = report.get("card_details")
+    if card_details:
+        row["totals"]["card_details"] = card_details
+        row["validation_notes"].append("Detalhes de cartão capturados em resposta separada do Monitorbot; validar possível sobreposição com POS/TEF antes de somar novamente.")
     body = json.dumps([row], ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         f"{base_url}/rest/v1/report_imports?on_conflict=content_sha256",
