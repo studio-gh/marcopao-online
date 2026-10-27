@@ -780,9 +780,11 @@ async def resolve_group_scope(client, entity, latest, replies, report_type):
 
 
 async def resolve_daily_selection(client, entity, latest, replies, requested_period, local_now):
-    """Handle year selection and the explicit previous-day button without guessing a date."""
+    """Handle year selection and record the message id of the explicit previous-day choice."""
     target_year = int(requested_period[:4])
     current_year = local_now.year
+    previous_day_confirmed = False
+    selection_after_id = None
     for _ in range(5):
         text = norm(latest.message).lower()
         labels = [label.strip() for label in buttons(latest)]
@@ -799,10 +801,12 @@ async def resolve_daily_selection(client, entity, latest, replies, requested_per
 
         previous_day = next((label for label in labels if "dia anterior" in label.lower() or label.lower() == "anterior"), None)
         if previous_day:
+            selection_after_id = getattr(latest, "id", None)
             latest, more = await send_choice(client, entity, latest, previous_day, "select previous day for daily sales")
             if not more:
                 raise RuntimeError("Monitorbot did not return the previous-day report.")
             replies.extend(more)
+            previous_day_confirmed = True
             latest = await latest_incoming(client, entity) or more[-1]
             if any(matches_report_type(m.message or "", "sale_day") for m in more):
                 break
@@ -811,7 +815,7 @@ async def resolve_daily_selection(client, entity, latest, replies, requested_per
         month_names = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
         target_month = month_names[int(requested_period[5:7]) - 1]
         month_option = next((label for label in labels if target_month in label.lower()), None)
-        if month_option and any(token in text for token in ("selecione", "mês", "mes", "opção desejada")):
+        if month_option and previous_day_confirmed and any(token in text for token in ("selecione", "mês", "mes", "opção desejada")):
             latest, more = await send_choice(client, entity, latest, month_option, f"select target month for daily sales {requested_period}")
             if not more:
                 raise RuntimeError(f"Monitorbot did not return the {target_month} daily report.")
@@ -819,7 +823,7 @@ async def resolve_daily_selection(client, entity, latest, replies, requested_per
             latest = await latest_incoming(client, entity) or more[-1]
             continue
         break
-    return latest, replies
+    return latest, replies, previous_day_confirmed, selection_after_id
 
 
 async def collect_one_report(client, entity, report_type, requested_period, local_now):
@@ -859,8 +863,15 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
         latest = await ensure_bellabyte_login(client, entity, latest)
         latest = await latest_incoming(client, entity) or latest
 
+    daily_selection_confirmed = False
+    daily_selection_after_id = None
     if report_type == "sale_day":
-        latest, replies = await resolve_daily_selection(client, entity, latest, replies, requested_period, local_now)
+        latest, replies, daily_selection_confirmed, daily_selection_after_id = await resolve_daily_selection(
+            client, entity, latest, replies, requested_period, local_now
+        )
+        # Only use messages after the explicit "Dia anterior" selection, not earlier/stale replies.
+        if daily_selection_confirmed and daily_selection_after_id is not None:
+            replies = [message for message in replies if getattr(message, "id", 0) > daily_selection_after_id]
     else:
         latest, replies = await resolve_period_selectors(client, entity, latest, replies, requested_period, report_type)
         latest, replies = await resolve_group_scope(client, entity, latest, replies, report_type)
@@ -882,6 +893,19 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
     low = norm(report_text).lower()
     if report_type == "sale_day" and daily_report_date_mismatch(report_text, "daily_yesterday"):
         raise RuntimeError("Daily report title says today while the requested period is yesterday.")
+    if report_type == "sale_day" and not daily_selection_confirmed:
+        has_yesterday_label = "venda de ontem" in low or "dia anterior" in low
+        date_match = re.search(r"(?:data|referência|período)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})", report_text, re.IGNORECASE)
+        confirmed_date = None
+        if date_match:
+            token = date_match.group(1)
+            if "/" in token:
+                day, month, year = token.split("/")
+                confirmed_date = f"{year}-{month}-{day}"
+            else:
+                confirmed_date = token
+        if not has_yesterday_label and confirmed_date != requested_period:
+            raise RuntimeError("Daily report lacks an explicit previous-day selection or matching date; refusing to save an ambiguous snapshot.")
     if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
         raise RuntimeError("Monthly report semantic validation failed.")
     if report_type not in {"sale_day", "monthly_sales"} and not (
