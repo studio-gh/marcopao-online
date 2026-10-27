@@ -218,7 +218,7 @@
   </section>
   <section class="panels insight-panels">
     <div class="panel"><div class="panel-heading"><div><h3>Participação por grupo</h3><div class="panel-sub">Acumulado de outubro · % do faturamento geral</div></div><span class="tag">RELATÓRIO 12</span></div><div id="groupBars" class="rank-list"></div><div class="showcase-foot">Relatório 12 · outubro acumulado. Os valores por grupo só serão comparados ao faturamento mensal depois de importar relatórios do mesmo período e validar a conciliação.</div></div>
-    <div class="panel"><div class="panel-heading"><div><h3>Produtos que movem a produção</h3><div class="panel-sub">Objetivo: Top 10 por faturamento, excluindo itens de embalagem e apoio</div></div><span class="tag">PRODUÇÃO</span></div><div class="product-list">
+    <div class="panel"><div class="panel-heading"><div><h3>Produtos que movem a produção</h3><div class="panel-sub">Objetivo: Top 10 por faturamento, excluindo itens de embalagem e apoio</div></div><span class="tag">PRODUÇÃO</span></div><div class="product-list" id="productTopList">
       <div class="product-row"><span class="rank-num">—</span><div class="product-info"><strong>Sem dados importados</strong><span>Aguardando relatório de produtos</span></div><strong>—</strong></div>
       <div class="product-row"><span class="rank-num">—</span><div class="product-info"><strong>Sem dados importados</strong><span>Aguardando relatório de produtos</span></div><strong>—</strong></div>
       <div class="product-row"><span class="rank-num">—</span><div class="product-info"><strong>Sem dados importados</strong><span>Aguardando relatório de produtos</span></div><strong>—</strong></div>
@@ -275,8 +275,36 @@ const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).
 const num=n=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n||0);
 const pct=(n,t)=>t?((n/t)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'0%';
 function setText(id,val){document.getElementById(id).textContent=val}
-const groupSales=[];
-const monthlyRevenue=null;
+let groupSales=[];
+let monthlyRevenue=null;
+let productSales=[];
+
+function renderProductionRows(entries, reportRow){
+ const root=document.getElementById('productTopList');
+ if(!root)return;
+ const blocked=/sacola|saco\\s+pl[aá]st|embalagem|bobina|etiqueta|filme\\s+pvc|papel\\s+kraft|fita\\s+adesiva/i;
+ const rows=(entries||[])
+  .filter(item=>item&&item.name&&!blocked.test(item.name))
+  .filter(item=>Number.isFinite(Number(item.value)))
+  .sort((a,b)=>Number(b.value)-Number(a.value))
+  .slice(0,10);
+ if(!rows.length){
+  root.innerHTML='<div class="empty-state">O relatório 13 ainda não trouxe linhas de produto reconhecidas. Nenhum ranking estimado será exibido.</div>';
+  return;
+ }
+ root.innerHTML=rows.map((item,index)=>{
+  const qty=Number.isFinite(Number(item.quantity))&&item.unit
+   ? Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+escapeCardText(item.unit)
+   : 'Quantidade não informada';
+  const group=item.group_name?'<span>'+escapeCardText(item.group_name)+'</span>':'';
+  return '<div class="product-row"><span class="rank-num">'+String(index+1).padStart(2,'0')+'</span><div class="product-info"><strong>'+escapeCardText(item.name)+'</strong><span>'+qty+'</span>'+group+'</div><strong>'+money(Number(item.value))+'</strong></div>';
+ }).join('');
+ const foot=root.parentElement.querySelector('.showcase-foot');
+ if(foot)foot.textContent='Fonte: relatório 13 do Monitorbot · '+rows.length+' produtos com faturamento identificado · importado em '+(reportRow?.imported_at?formatReportDate(reportRow.imported_at):'data não registrada')+'. Itens de embalagem e apoio foram filtrados.';
+}
+function formatReportDate(value){
+ return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value));
+}
 function renderGroupBars(){
  const root=document.getElementById('groupBars');
  if(!groupSales.length){
@@ -649,10 +677,27 @@ window.setSupabaseReports = function(rows){
   // The public summary view intentionally contains no raw Telegram text.
   importedReports[key]={text:'',date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||''};
  }
- if(window.monthlyReportRow?.totals?.total!=null){
-  window.monthlySnapshot=window.monthlyReportRow.totals;
+ window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
+ const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
+ const groupRow=latestByType('sales_by_group');
+ const productRow=latestByType('products_by_group');
+ const groupEntries=groupRow?.totals?.entries||[];
+ groupSales=groupEntries.filter(item=>item&&item.name&&Number.isFinite(Number(item.value))).map(item=>({
+  name:item.name,value:Number(item.value),
+  quantity:Number.isFinite(Number(item.quantity))?Number(item.quantity):null,
+  average:Number.isFinite(Number(item.average))?Number(item.average):null
+ }));
+ productSales=productRow?.totals?.entries||[];
+ renderGroupBars();
+ renderProductionRows(productSales,productRow);
+ setText('monthlyOverviewTotal',window.monthlyReportRow?.totals?.total!=null?money(Number(window.monthlyReportRow.totals.total)):'Relatório mensal não importado');
+ if(window.monthlyReportRow){
+  const mt=window.monthlyReportRow.totals||{};
+  setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Importado em '+formatReportDate(window.monthlyReportRow.imported_at));
+  setText('monthlyReviewState',window.monthlyReportRow.status==='validated'?'Validado':'Pendente de revisão');
  }else{
-  window.monthlySnapshot={total:207977.18,dinheiro:44037.26,pix:1352.25,pos_credito:2684.55,pos_debito:2549.19,tef:156650.62,ticket_pagamento:703.31,cupons:12584,ticket_medio:16.53,cupons_cancelados:0,valor_itens_cancelados:182390.51};
+  setText('monthlyOverviewCaption','Aguardando importação do relatório 2 do Monitorbot.');
+  setText('monthlyReviewState','Sem relatório');
  }
  if(selectedType==='sale-month')applyFilters();
 };
@@ -722,10 +767,10 @@ async function refreshDailyRows() {
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
   setStatus('Consultando os relatórios mais recentes no Supabase…');
   try {
-    // Summary-only endpoint: it exposes curated financial fields, never raw Telegram text or card detail payloads.
+    // Curated read model with RLS. Raw Telegram text and card-details are never served to the browser.
     const {data, error} = await sb
-      .from('dashboard_public_reports')
-      .select('report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at')
+      .from('dashboard_report_summaries')
+      .select('report_import_id,report_type,branch_name_raw,report_date,period_start,period_end,totals,status,source,imported_at,updated_at')
       .order('imported_at', {ascending:false})
       .limit(200);
     if (error) throw error;
