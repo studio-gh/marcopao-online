@@ -445,6 +445,7 @@ async def main():
         output = save_report(report, report_type, requested_period)
         persist_to_supabase(output, report_type, requested_period, local_now)
         await finish_card_prompt(client, entity)
+        print(f"COLLECTION_COMPLETE report_type={report_type} requested_period={requested_period}")
         return 0
     finally:
         await client.disconnect()
