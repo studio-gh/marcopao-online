@@ -28,4 +28,8 @@ for (const [index, match] of scripts.entries()) {
     new vm.Script(source, { filename });
   }
 }
-console.log(`Dashboard JS syntax OK: ${scripts.length} inline script(s), including module scripts.`);
+const insightsResult = spawnSync(process.execPath, ["--check", "report-insights.js"], { encoding: "utf8" });
+if (insightsResult.status !== 0) {
+  throw new Error(`Syntax error in report-insights.js:\n${insightsResult.stderr || insightsResult.stdout}`);
+}
+console.log(`Dashboard JS syntax OK: ${scripts.length} inline script(s) and report-insights.js.`);
