@@ -517,7 +517,7 @@ async def main():
                     return 20
                 latest = report_candidate
                 latest_text = norm(latest.message).lower()
-                explicit_dates = re.search(r"(?:data|referência|período)\\s*:?\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{2}/\\d{2}/\\d{4})", latest.message, re.I)
+                explicit_dates = re.search(r"(?:data|referência|período)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})", latest.message, re.I)
                 if explicit_dates:
                     raw_date = explicit_dates.group(1)
                     if "/" in raw_date:
