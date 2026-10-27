@@ -601,6 +601,7 @@ def is_main_menu(text):
     return "venda do dia" in low and "venda acumulada mês" in low and "top 100" in low
 
 
+# [collect-report:ticket_average] Retry ticket average after menu recovery fix.
 def is_report_menu_message(message):
     """Recognize the report keyboard even when Bellabyte repeats its branch welcome text."""
     text = message.message or ""
