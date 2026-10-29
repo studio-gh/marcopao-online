@@ -1160,10 +1160,12 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
         )
 
     low = norm(report_text).lower()
-    if report_type == "sale_day" and daily_report_date_mismatch(report_text, "daily_yesterday"):
-        raise RuntimeError("Daily report title says today while the requested period is yesterday.")
-    if report_type == "sale_day" and not daily_selection_confirmed:
-        has_yesterday_label = "venda de ontem" in low or "dia anterior" in low
+    if report_type == "sale_day":
+        daily_mode = os.environ.get("DAILY_SALES_DAY", "yesterday").strip().lower()
+        expected_label = "venda de hoje" if daily_mode == "today" else "venda do dia anterior"
+        wrong_label = "venda do dia anterior" if daily_mode == "today" else "venda de hoje"
+        if wrong_label in low:
+            raise RuntimeError(f"Daily report title conflicts with requested mode={daily_mode}; refusing ambiguous snapshot.")
         date_match = re.search(r"(?:data|referência|período)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})", report_text, re.IGNORECASE)
         confirmed_date = None
         if date_match:
@@ -1173,8 +1175,17 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
                 confirmed_date = f"{year}-{month}-{day}"
             else:
                 confirmed_date = token
-        if not has_yesterday_label and confirmed_date != requested_period:
-            raise RuntimeError("Daily report lacks an explicit previous-day selection or matching date; refusing to save an ambiguous snapshot.")
+        if daily_mode == "today":
+            # End-of-day recovery may request today's report explicitly. Confirm its title;
+            # date metadata takes precedence whenever Bellabyte supplies it.
+            if "venda de hoje" not in low and confirmed_date != requested_period:
+                raise RuntimeError("Today's report lacks an explicit today label or matching date; refusing ambiguous snapshot.")
+        else:
+            if daily_report_date_mismatch(report_text, "daily_yesterday"):
+                raise RuntimeError("Daily report title says today while the requested period is yesterday.")
+            has_yesterday_label = "venda de ontem" in low or "dia anterior" in low
+            if not has_yesterday_label and confirmed_date != requested_period:
+                raise RuntimeError("Daily report lacks an explicit previous-day selection or matching date; refusing an ambiguous snapshot.")
     if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
         raise RuntimeError("Monthly report semantic validation failed.")
     ticket_average_rows = (
