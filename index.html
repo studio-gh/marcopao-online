@@ -85,7 +85,22 @@
 .auth-top-button{font-size:12px}
 @media(max-width:520px){.auth-card{padding:20px}.auth-actions{grid-template-columns:1fr}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
 
-.product-category-chip{display:inline-block!important;width:max-content;border-radius:6px;padding:3px 7px;background:#eef2e9;color:#385648;font-size:10px;font-weight:700;letter-spacing:.01em}.product-info .product-category-chip{margin-top:2px}.trust-banner{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border:1px solid #e8d4a8;background:#fff8e8;color:#77521d;border-radius:13px;font-size:12px;line-height:1.5;margin:0 0 12px}.trust-banner strong{display:block;margin-bottom:2px}.trust-banner[data-level="blocked"]{background:#fff0eb;border-color:#efc5b9;color:#8b3525}.trust-banner[data-level="ok"]{background:#edf6ee;border-color:#cfe3d1;color:#28563d}.trust-banner .trust-icon{font-size:16px;line-height:1}</style>
+.product-category-chip{display:inline-block!important;width:max-content;border-radius:6px;padding:3px 7px;background:#eef2e9;color:#385648;font-size:10px;font-weight:700;letter-spacing:.01em}.product-info .product-category-chip{margin-top:2px}.trust-banner{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border:1px solid #e8d4a8;background:#fff8e8;color:#77521d;border-radius:13px;font-size:12px;line-height:1.5;margin:0 0 12px}.trust-banner strong{display:block;margin-bottom:2px}.trust-banner[data-level="blocked"]{background:#fff0eb;border-color:#efc5b9;color:#8b3525}.trust-banner[data-level="ok"]{background:#edf6ee;border-color:#cfe3d1;color:#28563d}.trust-banner .trust-icon{font-size:16px;line-height:1}
+.seven-day-panel{margin-top:18px;border-top:1px solid var(--line);padding-top:20px}
+.seven-day-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.seven-day-heading h3{margin:0 0 5px;font-size:15px}
+.seven-day-heading p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+.seven-day-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.seven-day-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;min-width:0}
+.seven-day-kpi span,.seven-day-kpi small{display:block;color:var(--muted);font-size:10px;line-height:1.45}
+.seven-day-kpi strong{display:block;font-size:clamp(17px,2.2vw,24px);letter-spacing:-.04em;margin:8px 0;overflow-wrap:anywhere}
+.seven-day-table-wrap{overflow-x:auto;margin-top:14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.seven-day-table{margin:0;min-width:450px}
+.seven-day-table td:nth-child(n+2),.seven-day-table th:nth-child(n+2){text-align:right}
+.seven-day-table .missing-day{color:#9b6d45;background:#fffaf3}
+.seven-day-foot{font-size:10px;color:var(--muted);line-height:1.5;margin:10px 0 0}
+@media(max-width:700px){.seven-day-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.seven-day-heading{align-items:flex-start}}
+</style>
 </head>
 <body>
 
@@ -163,6 +178,18 @@
       </div>
       <p class="card-detail-note">Este relatório complementar não é somado novamente ao faturamento diário, para evitar dupla contagem com POS/TEF. Dados aguardando revisão.</p>
     </div>
+    <div class="seven-day-panel" id="sevenDaySummaryPanel">
+      <div class="seven-day-heading"><div><h3>Consolidado dos últimos 7 dias</h3><p id="sevenDaySubtitle">Soma diária acumulada, usando a versão mais recente validada de cada data.</p></div><span class="tag">7 DIAS</span></div>
+      <div class="seven-day-kpis">
+        <div class="seven-day-kpi"><span>Faturamento acumulado</span><strong id="sevenDayTotal">—</strong><small id="sevenDayCoverage">—</small></div>
+        <div class="seven-day-kpi"><span>Média por dia com relatório</span><strong id="sevenDayAverage">—</strong><small>Não inclui dias sem relatório</small></div>
+        <div class="seven-day-kpi"><span>Cupons acumulados</span><strong id="sevenDayCoupons">—</strong><small id="sevenDayTickets">Cupons dos dias disponíveis</small></div>
+        <div class="seven-day-kpi"><span>Ticket médio ponderado</span><strong id="sevenDayTicket">—</strong><small>Total vendido ÷ cupons acumulados</small></div>
+      </div>
+      <div class="seven-day-table-wrap"><table class="table seven-day-table"><thead><tr><th>Dia</th><th>Venda</th><th>Cupons</th><th>Acumulado</th></tr></thead><tbody id="sevenDayRows"></tbody></table></div>
+      <p class="seven-day-foot" id="sevenDayFoot">Dias sem relatório ficam identificados e não são tratados como venda zero.</p>
+    </div>
+
   </section>
 
   <section class="hero hidden-by-filter">
@@ -538,17 +565,49 @@ function renderCardDetails(today,prev){
  document.getElementById('cardNetworkRows').innerHTML=renderRows(networks.rows);
  panel.style.display='block';
 }
+
+function renderSevenDaySummary(reports){
+ const rows=(reports||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+ const latest=rows[rows.length-1]||null;
+ const startDate=latest?new Date(latest.date+'T00:00:00Z'):new Date();
+ if(latest)startDate.setUTCDate(startDate.getUTCDate()-6);
+ const dateKey=d=>d.toISOString().slice(0,10);
+ const byDate=new Map(rows.map(r=>[r.date,r]));
+ const days=[];
+ let cumulative=0,coupons=0,couponDays=0;
+ for(let i=0;i<7;i++){
+  const d=new Date(startDate);d.setUTCDate(d.getUTCDate()+i);
+  const key=dateKey(d),r=byDate.get(key)||null;
+  if(r){cumulative+=r.metrics.total||0;if(Number.isFinite(r.metrics.coupons)){coupons+=r.metrics.coupons;couponDays++;}}
+  days.push({date:key,row:r,cumulative});
+ }
+ const fmtDate=key=>new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}).format(new Date(key+'T00:00:00Z'));
+ const available=days.filter(d=>d.row);
+ const total=available.reduce((sum,d)=>sum+(d.row.metrics.total||0),0);
+ const avg=available.length?total/available.length:0;
+ const totalCoupons=available.reduce((sum,d)=>sum+(Number.isFinite(d.row.metrics.coupons)?d.row.metrics.coupons:0),0);
+ const weightedTicket=totalCoupons?total/totalCoupons:null;
+ setText('sevenDayTotal',available.length?money(total):'—');
+ setText('sevenDayAverage',available.length?money(avg):'—');
+ setText('sevenDayCoupons',available.length?num(totalCoupons):'—');
+ setText('sevenDayTicket',weightedTicket===null?'—':money(weightedTicket));
+ setText('sevenDayCoverage',available.length+' de 7 dias com relatório validado');
+ setText('sevenDayTickets',couponDays+' dia(s) com contagem de cupons');
+ setText('sevenDaySubtitle',latest?'Janela móvel de '+fmtDate(days[0].date)+' a '+fmtDate(days[6].date)+'. Consolidado recalculado a cada sincronização.':'Aguardando relatórios diários validados.');
+ const body=document.getElementById('sevenDayRows');
+ if(body)body.innerHTML=days.map(d=>'<tr'+(!d.row?' class="missing-day"':'')+'><td>'+fmtDate(d.date)+(d.row?'':' · sem relatório')+'</td><td>'+(d.row?money(d.row.metrics.total):'—')+'</td><td>'+(d.row&&Number.isFinite(d.row.metrics.coupons)?num(d.row.metrics.coupons):'—')+'</td><td>'+(d.row?money(d.cumulative):'—')+'</td></tr>').join('');
+ setText('sevenDayFoot',available.length===7?'Todos os 7 dias têm relatórios validados. O acumulado soma cada data uma única vez.':'Há '+(7-available.length)+' dia(s) sem relatório validado nesta janela. Esses dias não entram na soma nem na média e aparecem identificados na tabela.');
+}
 function renderDailyComparison(){
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
  const syncMeta=document.getElementById('dailyReportSyncMeta');
- const selectedBranch='all';
  const period=document.getElementById('periodFilter').value;
  const customDate=document.getElementById('reportDateFilter')?.value||'';
  let ready=dailyReports
   .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total))
   .sort((a,b)=>a.date.localeCompare(b.date));
- const allValid=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date));
+ const allValid=[...ready];
  const latestAll=allValid[allValid.length-1]||null;
  if(syncMeta){
   const imported=latestAll?.importedAt?new Date(latestAll.importedAt):null;
@@ -575,6 +634,7 @@ function renderDailyComparison(){
    empty.textContent='Nenhum relatório diário validado foi recebido do Supabase nesta sessão. Clique em “Atualizar dados”; se o problema continuar, confira o estado da sincronização no topo da página.';
   }
   renderCardDetails(null,null);
+  renderSevenDaySummary(allValid);
   return;
  }
  const dateObj=new Date(today.date+'T00:00:00Z');
@@ -605,6 +665,7 @@ function renderDailyComparison(){
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
  setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
  renderCardDetails(today,prev);
+ renderSevenDaySummary(allValid);
 }
 function applyFilters(){
  const period=document.getElementById('periodFilter').value;
