@@ -766,6 +766,9 @@ def find_report_payload(replies, report_type):
 
 def report_target_period(report_type, now):
     if report_type == "sale_day":
+        daily_mode = os.environ.get("DAILY_SALES_DAY", "yesterday").strip().lower()
+        if daily_mode == "today":
+            return now.date().isoformat()
         return (now.date() - timedelta(days=1)).isoformat()
     if report_type == "monthly_sales":
         return now.strftime("%Y-%m")
