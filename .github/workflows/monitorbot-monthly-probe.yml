@@ -75,6 +75,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
+                    DAILY_SALES_DAY: ${{ contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'today' || 'yesterday' }}
           REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode || (contains(github.event.head_commit.message, '[collect-report:ticket_average]') && 'ticket_average' || contains(github.event.head_commit.message, '[collect-report:products_by_group]') && 'products_by_group' || contains(github.event.head_commit.message, '[collect-report:sales_by_group]') && 'sales_by_group' || contains(github.event.head_commit.message, '[collect-report:top_value]') && 'top_value' || contains(github.event.head_commit.message, '[collect-report:top_quantity]') && 'top_quantity' || contains(github.event.head_commit.message, '[collect-report:monthly_sales]') && 'monthly_accumulated' || contains(github.event.head_commit.message, '[collect-report:sale_day]') && 'daily_yesterday' || 'all_reports') }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
