@@ -1024,7 +1024,7 @@ async def resolve_group_scope(client, entity, latest, replies, report_type):
 
 
 async def resolve_daily_selection(client, entity, latest, replies, requested_period, local_now):
-    """Handle year selection and record the message id of the explicit previous-day choice."""
+    """Select yesterday for the normal daily import and remember the menu boundary."""
     target_year = int(requested_period[:4])
     current_year = local_now.year
     previous_day_confirmed = False
@@ -1043,14 +1043,24 @@ async def resolve_daily_selection(client, entity, latest, replies, requested_per
             latest = await latest_incoming(client, entity) or more[-1]
             continue
 
-        previous_day = next((label for label in labels if "dia anterior" in label.lower() or label.lower() == "anterior"), None)
-        if previous_day:
+        # Normal scheduled capture intentionally selects yesterday. For the end-of-day
+        # catch-up mode, REPORT_MODE=daily_today selects Today explicitly instead.
+        daily_mode = os.environ.get("DAILY_SALES_DAY", "yesterday").strip().lower()
+        desired_label = "hoje" if daily_mode == "today" else "dia anterior"
+        desired_choice = next(
+            (label for label in labels if desired_label in label.lower()),
+            None
+        )
+        if desired_choice:
             selection_after_id = getattr(latest, "id", None)
-            latest, more = await send_choice(client, entity, latest, previous_day, "select previous day for daily sales")
+            latest, more = await send_choice(
+                client, entity, latest, desired_choice,
+                "select today for end-of-day sales" if daily_mode == "today" else "select previous day for daily sales"
+            )
             if not more:
-                raise RuntimeError("Monitorbot did not return the previous-day report.")
+                raise RuntimeError(f"Monitorbot did not return the requested {desired_label} sales report.")
             replies.extend(more)
-            previous_day_confirmed = True
+            previous_day_confirmed = daily_mode != "today"
             latest = await latest_incoming(client, entity) or more[-1]
             if any(matches_report_type(m.message or "", "sale_day") for m in more):
                 break
