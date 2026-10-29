@@ -569,8 +569,15 @@ function renderCardDetails(today,prev){
 function renderSevenDaySummary(reports){
  const rows=(reports||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
  const latest=rows[rows.length-1]||null;
- const startDate=latest?new Date(latest.date+'T00:00:00Z'):new Date();
- if(latest)startDate.setUTCDate(startDate.getUTCDate()-6);
+ const startDate=new Date();
+ if(latest){
+  startDate.setTime(new Date(latest.date+'T00:00:00Z').getTime());
+  startDate.setUTCDate(startDate.getUTCDate()-6);
+ }else{
+  const localToday=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  startDate.setTime(new Date(localToday+'T00:00:00Z').getTime());
+  startDate.setUTCDate(startDate.getUTCDate()-6);
+ }
  const dateKey=d=>d.toISOString().slice(0,10);
  const byDate=new Map(rows.map(r=>[r.date,r]));
  const days=[];
