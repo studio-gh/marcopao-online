@@ -896,16 +896,35 @@ async def recover_menu(client, entity, current):
         text = norm(current.message)
 
     if not is_report_menu_message(current):
-        history = await client.get_messages(entity, limit=40)
-        menus = [m for m in history if not m.out and is_report_menu_message(m)]
-        # A stale menu from before login/reset must not silently be used.
+        history = await client.get_messages(entity, limit=60)
         current_id = getattr(current, "id", 0) or 0
-        menus = [m for m in menus if m.id >= current_id]
-        if menus:
-            current = max(menus, key=lambda m: m.id)
-            text = norm(current.message)
-        else:
-            raise RuntimeError("Main report menu not confirmed after login, reset and branch selection.")
+        # Bellabyte may emit an intermediate report preview after branch selection,
+        # followed by the branch selector itself. Re-select Marcopão if that happened.
+        branch_prompts = [
+            m for m in history
+            if not m.out and m.id >= current_id
+            and ("qual filial deseja se conectar" in norm(m.message).lower()
+                 or "digite qual filial deseja se conectar" in norm(m.message).lower())
+        ]
+        if branch_prompts:
+            prompt = max(branch_prompts, key=lambda m: m.id)
+            _, branch_replies = await send_choice(
+                client, entity, prompt, "1",
+                "reselect Marcopao after intermediate Bellabyte response"
+            )
+            if branch_replies:
+                current = await latest_incoming(client, entity) or branch_replies[-1]
+        if not is_report_menu_message(current):
+            history = await client.get_messages(entity, limit=60)
+            current_id = getattr(current, "id", 0) or 0
+            menus = [
+                m for m in history
+                if not m.out and m.id >= current_id and is_report_menu_message(m)
+            ]
+            if menus:
+                current = max(menus, key=lambda m: m.id)
+            else:
+                raise RuntimeError("Main report menu not confirmed after login, reset and branch selection.")
     return current
 
 async def finish_card_prompt(client, entity):
