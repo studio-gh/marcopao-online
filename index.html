@@ -140,6 +140,7 @@
   <section class="day-compare hidden-by-filter" id="dailyCompareView" aria-live="polite">
     <h2>Fechamento diário · comparação com o dia anterior</h2>
     <div class="sub" id="dailyCompareSubtitle">A visão diária aparecerá quando os relatórios de dois dias consecutivos estiverem importados e com data identificada.</div>
+    <div class="sub" id="dailyReportSyncMeta">Aguardando leitura do Supabase.</div>
     <div id="dailyCompareEmpty" class="day-empty">Ainda não há dois relatórios diários validados no dashboard. Não vamos substituir dados reais por números de exemplo.</div>
     <div class="day-grid" id="dailyCompareGrid" style="display:none">
       <div class="day-kpi"><label>Venda do dia</label><strong id="dailyTodayTotal">—</strong><small id="dailyTodayDate">Data não identificada</small></div>
@@ -540,12 +541,20 @@ function renderCardDetails(today,prev){
 function renderDailyComparison(){
  const empty=document.getElementById('dailyCompareEmpty');
  const grid=document.getElementById('dailyCompareGrid');
+ const syncMeta=document.getElementById('dailyReportSyncMeta');
  const selectedBranch='all';
  const period=document.getElementById('periodFilter').value;
  const customDate=document.getElementById('reportDateFilter')?.value||'';
  let ready=dailyReports
   .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total))
   .sort((a,b)=>a.date.localeCompare(b.date));
+ const allValid=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date));
+ const latestAll=allValid[allValid.length-1]||null;
+ if(syncMeta){
+  const imported=latestAll?.importedAt?new Date(latestAll.importedAt):null;
+  const stamp=imported&&!Number.isNaN(imported.getTime())?' · importado '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(imported):'';
+  syncMeta.textContent=latestAll?'Último relatório diário válido no navegador: '+latestAll.date+' · '+money(latestAll.metrics.total)+stamp+'.':'Nenhum relatório diário válido foi carregado nesta sessão do navegador.';
+ }
  if(period==='today'){
   const todayIso=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   ready=ready.filter(r=>r.date===todayIso);
@@ -560,7 +569,11 @@ function renderDailyComparison(){
   empty.style.display='block';grid.style.display='none';
   const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':period==='month'?' no mês atual':'';
   setText('dailyCompareSubtitle','Marcopão · comparação com o último relatório diário disponível.');
-  empty.textContent='Nenhum relatório diário encontrado'+suffix+'. A visão mensal não será usada como substituta; são necessários dados diários reais.';
+  if(latestAll){
+   empty.textContent='O navegador carregou até '+latestAll.date+' ('+money(latestAll.metrics.total)+'), mas nenhum relatório corresponde ao filtro selecionado'+suffix+'. Use “Último dia disponível” ou “Atualizar dados” para consultar novamente.';
+  }else{
+   empty.textContent='Nenhum relatório diário validado foi recebido do Supabase nesta sessão. Clique em “Atualizar dados”; se o problema continuar, confira o estado da sincronização no topo da página.';
+  }
   renderCardDetails(null,null);
   return;
  }
