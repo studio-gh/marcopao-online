@@ -787,7 +787,6 @@ document.getElementById('reportType').addEventListener('change',e=>{selectedType
 document.getElementById('groupDetailSelect').addEventListener('change',renderGroupDetail);
 document.getElementById('periodFilter').addEventListener('change',applyFilters);
 document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
-document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters);
 
 document.getElementById('searchFilter').addEventListener('input',applyFilters);
 document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sale-day';document.getElementById('reportType').value='sale-day';document.getElementById('periodFilter').value='all';document.getElementById('searchFilter').value='';render();applyFilters();toast('Filtros redefinidos. Dados reais armazenados foram preservados.')};
@@ -810,8 +809,8 @@ window.setSupabaseReports = function(rows){
   const currentRow=currentMonthlyRecord?{month:currentMonthKey,total:Number(currentMonthlyRecord.totals.total),row:currentMonthlyRecord}:null;
  const ytdRows=monthlyHistory.filter(x=>Number(x.month.slice(0,4))===currentYear&&Number(x.month.slice(5,7))<=currentMonth);
  const ytdTotal=ytdRows.reduce((sum,x)=>sum+x.total,0);
- window.monthlyReportRow=currentRow;
- window.monthlySnapshot=currentRow?.row?.totals||null;
+  window.monthlyReportRow=currentMonthlyRecord;
+  window.monthlySnapshot=currentMonthlyRecord?.totals||null;
  const monthTotal=currentRow?.total;
  setText('monthlyOverviewTotal',monthTotal!=null?money(monthTotal):'Relatório mensal não importado');
  if(currentRow){
