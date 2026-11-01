@@ -5,6 +5,25 @@ import { spawnSync } from "node:child_process";
 import vm from "node:vm";
 
 const html = readFileSync("index.html", "utf8");
+
+// Integration contract checks: these caught the monthly-row shape regression.
+const dashboardLines = html.split(/\\r?\\n/);
+const reportDateListeners = dashboardLines.filter(line =>
+  line.includes("document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters)")
+);
+if (reportDateListeners.length !== 1) {
+  throw new Error(`Expected one report-date change listener, found ${reportDateListeners.length}`);
+}
+if (!dashboardLines.some(line => line.trim() === "window.monthlyReportRow=currentMonthlyRecord;")) {
+  throw new Error("Monthly report public state must expose the raw Supabase row");
+}
+if (!dashboardLines.some(line => line.trim() === "window.monthlySnapshot=currentMonthlyRecord?.totals||null;")) {
+  throw new Error("Monthly snapshot must expose the raw totals object");
+}
+if (!dashboardLines.some(line => line.includes("showMonthlyReport(window.monthlyReportRow)"))) {
+  throw new Error("Monthly report view consumer is missing");
+}
+
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 if (!scripts.length) throw new Error("No inline JavaScript found in index.html");
 
