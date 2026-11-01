@@ -24,6 +24,7 @@ is_report_menu_message = MODULE.is_report_menu_message
 
 
 
+class ReportTargetPeriodTests(unittest.TestCase):
     def test_monthly_report_target_period_can_be_selected_explicitly(self):
         from unittest.mock import patch
         now = MODULE.datetime(2026, 11, 1, 8, 0)
