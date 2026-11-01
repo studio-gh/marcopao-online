@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      monthly_report_period:
+        description: "Optional month for historical monthly sales, YYYY-MM (for example 2025-10)"
+        required: false
+        type: string
       report_mode:
         description: "Report or sequence to collect"
         required: true
@@ -78,6 +82,7 @@ jobs:
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
           DAILY_SALES_DAY: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode == 'daily_today' && 'today' || github.event_name == 'schedule' && github.event.schedule != '0 11 * * *' && 'today' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'today' || 'yesterday' }}
           REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.report_mode == 'daily_today' && 'daily_yesterday' || inputs.report_mode) || (contains(github.event.head_commit.message, '[collect-report:ticket_average]') && 'ticket_average' || contains(github.event.head_commit.message, '[collect-report:products_by_group]') && 'products_by_group' || contains(github.event.head_commit.message, '[collect-report:sales_by_group]') && 'sales_by_group' || contains(github.event.head_commit.message, '[collect-report:top_value]') && 'top_value' || contains(github.event.head_commit.message, '[collect-report:top_quantity]') && 'top_quantity' || contains(github.event.head_commit.message, '[collect-report:monthly_sales]') && 'monthly_accumulated' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'daily_yesterday' || contains(github.event.head_commit.message, '[collect-report:sale_day]') && 'daily_yesterday' || 'all_reports') }}
+          MONTHLY_REPORT_PERIOD: ${{ inputs.monthly_report_period }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
