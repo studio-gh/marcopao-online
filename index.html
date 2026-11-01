@@ -806,7 +806,8 @@ window.setSupabaseReports = function(rows){
  const nowParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).split('-').map(Number);
  const currentYear=nowParts[0],currentMonth=nowParts[1],currentDay=nowParts[2];
  const currentMonthKey=currentYear+'-'+String(currentMonth).padStart(2,'0');
- const currentRow=latestByMonth.get(currentMonthKey)||null;
+ const currentMonthlyRecord=latestByMonth.get(currentMonthKey)||null;
+  const currentRow=currentMonthlyRecord?{month:currentMonthKey,total:Number(currentMonthlyRecord.totals.total),row:currentMonthlyRecord}:null;
  const ytdRows=monthlyHistory.filter(x=>Number(x.month.slice(0,4))===currentYear&&Number(x.month.slice(5,7))<=currentMonth);
  const ytdTotal=ytdRows.reduce((sum,x)=>sum+x.total,0);
  window.monthlyReportRow=currentRow;
