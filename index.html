@@ -47,7 +47,7 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 
 
-.day-compare{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;margin:0 0 18px;box-shadow:var(--shadow)}
+.monthly-year-compare{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}.monthly-year-heading{font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.monthly-year-status{font-size:12px;color:var(--muted);line-height:1.5}.monthly-year-list{display:grid;gap:7px;margin-top:8px}.monthly-year-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px}.monthly-year-row span{color:var(--muted)}.monthly-year-row strong{font-variant-numeric:tabular-nums}.monthly-year-row .positive{color:#218653}.monthly-year-row .negative{color:#b45345}@media(max-width:600px){.monthly-year-row{font-size:11px}}.day-compare{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;margin:0 0 18px;box-shadow:var(--shadow)}
 .day-compare h2{margin:0 0 6px;font-size:18px}.day-compare .sub{color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:16px}
 .day-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .day-kpi{padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff}
@@ -241,6 +241,11 @@
       <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DO MÊS</div><h3>Venda do mês</h3></div><span class="showcase-icon">↗</span></div>
       <div class="showcase-number" id="monthlyOverviewTotal">R$ 207.977,18</div>
       <div class="showcase-caption" id="monthlyOverviewCaption">12.584 cupons · Ticket médio R$ 16,53 · relatório manual importado em 27/10 às 14:01.</div>
+      <div class="monthly-year-compare" id="monthlyYearCompare">
+        <div class="monthly-year-heading">Comparativo com anos anteriores</div>
+        <div class="monthly-year-status" id="monthlyYearStatus">Aguardando relatórios históricos.</div>
+        <div class="monthly-year-list" id="monthlyYearList"></div>
+      </div>
       <div class="progress-label"><span>Conferência</span><span id="monthlyReviewState">Pendente de revisão</span></div>
       <div class="showcase-foot">Fonte: relatório 2 recebido do Monitorbot. Total informativo; o relatório ainda requer conferência de cancelamentos.</div>
     </article>
@@ -836,6 +841,33 @@ window.setSupabaseReports = function(rows){
  }else{
   setText('monthlyOverviewCaption','Aguardando importação do relatório 2 do Monitorbot.');
   setText('monthlyReviewState','Sem relatório');
+ }
+ const yearNow=new Date();
+ const currentMonth=String(yearNow.getMonth()+1).padStart(2,'0');
+ const currentYear=yearNow.getFullYear();
+ const monthlyRows=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated'&&r.period_start&&String(r.period_start).slice(5,7)===currentMonth);
+ const byYear=new Map();
+ for(const row of monthlyRows){const year=Number(String(row.period_start).slice(0,4));const total=Number(row.totals?.total);if(Number.isFinite(year)&&Number.isFinite(total)){const prev=byYear.get(year);if(!prev||(row.imported_at||'')>(prev.imported_at||''))byYear.set(year,{total,imported_at:row.imported_at});}}
+ const currentTotal=byYear.get(currentYear)?.total;
+ const statusEl=document.getElementById('monthlyYearStatus');
+ const listEl=document.getElementById('monthlyYearList');
+ if(statusEl&&listEl){
+  listEl.innerHTML='';
+  if(currentTotal==null){statusEl.textContent='O relatório acumulado de '+yearNow.toLocaleDateString('pt-BR',{month:'long'})+' de '+currentYear+' ainda não foi importado. Assim que chegar, os percentuais serão calculados automaticamente.';}
+  else{
+   const years=[...byYear.keys()].filter(y=>y<currentYear).sort((a,b)=>b-a);
+   statusEl.textContent='Variação do faturamento acumulado de '+yearNow.toLocaleDateString('pt-BR',{month:'long'})+' contra o mesmo mês de cada ano.';
+   if(!years.length)statusEl.textContent+=' Ainda não há histórico validado para comparação.';
+   for(const year of years){
+    const prior=byYear.get(year).total;
+    const delta=prior===0?null:((currentTotal-prior)/prior)*100;
+    const row=document.createElement('div');row.className='monthly-year-row';
+    const label=document.createElement('span');label.textContent=year+' · '+money(prior);
+    const value=document.createElement('strong');value.textContent=delta==null?'Base zero':(delta>0?'+':'')+delta.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+    if(delta!=null)value.className=delta>=0?'positive':'negative';
+    row.append(label,value);listEl.append(row);
+   }
+  }
  }
  if(selectedType==='sale-month'||["top-value","top-quantity","ticket","products-group"].includes(selectedType))applyFilters();
 };
