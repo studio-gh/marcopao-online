@@ -1240,7 +1240,7 @@ async def main():
     backfill_end = os.environ.get("MONTHLY_BACKFILL_END", "").strip()
     backfill_months = []
     if mode == "monthly_backfill":
-        if not (re.fullmatch(r"\\d{4}-\\d{2}", backfill_start) and re.fullmatch(r"\\d{4}-\\d{2}", backfill_end)):
+        if not (re.fullmatch(r"\d{4}-\d{2}", backfill_start) and re.fullmatch(r"\d{4}-\d{2}", backfill_end)):
             print("MONTHLY_BACKFILL_START and MONTHLY_BACKFILL_END must use YYYY-MM.")
             return 2
         start_date = datetime.strptime(backfill_start, "%Y-%m")
