@@ -14,7 +14,6 @@ const reportDateHandlerCount = html.split(/\\r?\\n/).filter(line =>
 if (reportDateHandlerCount !== 1) {
   throw new Error(`Expected one executable report-date change handler, found ${reportDateHandlerCount}`);
 }
-}
 if (!/window\\.monthlyReportRow\\s*=\\s*currentMonthlyRecord\\s*;/.test(normalizedHtml)) {
   throw new Error("Monthly report public state must expose the raw Supabase row");
 }
