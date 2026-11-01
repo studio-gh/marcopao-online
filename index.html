@@ -866,8 +866,8 @@ window.setSupabaseReports = function(rows){
 
 
 window.setSupabaseDailyReports = function(rows){
- const remote=(rows||[]).map(row=>{
-  const t=row.totals||{}, date=row.report_date||row.period_start||'';
+ const remote=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row==='object').map(row=>{
+  const t=row.totals&&typeof row.totals==='object'?row.totals:{}, date=row.report_date||row.period_start||'';
   return {date:String(date).slice(0,10),branch:row.branch_name_raw||'Filial não identificada',
    metrics:{total:t.total==null?null:Number(t.total),coupons:t.cupons==null?null:Number(t.cupons),ticket:t.ticket_medio==null?null:Number(t.ticket_medio)},
    cardDetails:t.card_details||null,status:row.status||'needs_review',source:'supabase',importedAt:row.imported_at||''};
@@ -939,10 +939,10 @@ async function refreshDailyRows() {
       .order('imported_at', {ascending:false})
       .limit(200);
     if (error) throw error;
-    const rows = (data || []).map(row => ({
+    const rows = (Array.isArray(data)?data:[]).filter(row=>row&&typeof row==='object').map(row => ({
       ...row,
       id: [row.report_type,row.branch_name_raw,row.report_date||row.period_start].join('|'),
-      totals: row.totals || {},
+      totals: row.totals&&typeof row.totals==='object'?row.totals:{},
       validation_notes: Array.isArray(row.totals?.validation_warnings) ? row.totals.validation_warnings : []
     }));
     lastSuccessfulSyncAt = new Date().toISOString();
@@ -955,7 +955,7 @@ async function refreshDailyRows() {
     const latestReportEl = document.getElementById('lastReportTime');
     if (latestReportEl) latestReportEl.textContent = latestReport ? formatClock(latestReport) : 'Nenhum relatório importado';
     window.setSupabaseReports(rows);
-    window.setSupabaseDailyReports(rows.filter(row => row.report_type === 'sale_day'));
+    window.setSupabaseDailyReports(rows.filter(row => row&&row.report_type === 'sale_day'));
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
     const productCount = rows.filter(row => ['top_value','top_quantity','ticket_average','sales_by_group','products_by_group'].includes(row.report_type)).length;
