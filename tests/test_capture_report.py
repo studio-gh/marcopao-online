@@ -459,22 +459,27 @@ if __name__ == "__main__":
 
 
 class MonthlySelectorSafetyTests(unittest.TestCase):
-    def test_monthly_selector_requires_confirmed_year_and_month(self):
+    def test_monthly_selector_follows_typed_prior_year_then_month_flow(self):
         from unittest.mock import patch
         async def scenario():
             class FakeMessage:
-                def __init__(self, message, labels, msg_id):
+                def __init__(self, message, msg_id):
                     self.message = message
                     self.reply_markup = None
                     self.id = msg_id
-                    self._labels = labels
-            latest = FakeMessage("Selecione a opção desejada no teclado", ["Hoje", "Dia anterior", "Semana", "Mes", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"], 1)
+            initial = FakeMessage("Selecione a opção da venda de hoje ou a do dia anterior", 1)
+            month_prompt = FakeMessage("Selecione a opção desejada no teclado", 2)
+            report = FakeMessage("Venda Acumulada do Mês de Outubro", 3)
+            sent = []
             async def send_choice(client, entity, current, choice, reason):
-                return current, [FakeMessage("Venda Acumulada do Mês de Outubro", ["Sim", "Não"], 2)]
+                sent.append(choice)
+                response = month_prompt if len(sent) == 1 else report
+                return response, [response]
             async def latest_incoming(client, entity):
-                return latest
+                return month_prompt if len(sent) == 1 else report
             with patch.object(MODULE, "send_choice", side_effect=send_choice), patch.object(MODULE, "latest_incoming", side_effect=latest_incoming):
-                with self.assertRaisesRegex(RuntimeError, "did not expose a selectable outubro option"):
-                    await MODULE.resolve_period_selectors(None, None, latest, [], "2025-10", "monthly_sales")
+                latest, replies = await MODULE.resolve_period_selectors(None, None, initial, [], "2025-10", "monthly_sales")
+            self.assertEqual(sent, ["Ano Anterior", "Outubro"])
+            self.assertEqual(latest.message, "Venda Acumulada do Mês de Outubro")
         import asyncio
         asyncio.run(scenario())
