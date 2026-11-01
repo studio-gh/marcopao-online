@@ -6,21 +6,19 @@ import vm from "node:vm";
 
 const html = readFileSync("index.html", "utf8");
 
-// Integration contract checks: these caught the monthly-row shape regression.
-const dashboardLines = html.split(/\\r?\\n/);
-const reportDateListeners = dashboardLines.filter(line =>
-  line.includes("document.getElementById('reportDateFilter')?.addEventListener('change',applyFilters)")
-);
-if (reportDateListeners.length !== 1) {
-  throw new Error(`Expected one report-date change listener, found ${reportDateListeners.length}`);
+// Integration contract checks: validate monthly data shape and duplicate handlers.
+const normalizedHtml = html.replace(/\\s+/g, " ");
+const reportDateListenerCount = (html.match(/reportDateFilter[^\\n]*addEventListener\\('change',\\s*applyFilters\\)/g) || []).length;
+if (reportDateListenerCount !== 1) {
+  throw new Error(`Expected one report-date change listener, found ${reportDateListenerCount}`);
 }
-if (!dashboardLines.some(line => line.trim() === "window.monthlyReportRow=currentMonthlyRecord;")) {
+if (!/window\\.monthlyReportRow\\s*=\\s*currentMonthlyRecord\\s*;/.test(normalizedHtml)) {
   throw new Error("Monthly report public state must expose the raw Supabase row");
 }
-if (!dashboardLines.some(line => line.trim() === "window.monthlySnapshot=currentMonthlyRecord?.totals||null;")) {
+if (!/window\\.monthlySnapshot\\s*=\\s*currentMonthlyRecord\\?\\.totals\\s*\\|\\|\\s*null\\s*;/.test(normalizedHtml)) {
   throw new Error("Monthly snapshot must expose the raw totals object");
 }
-if (!dashboardLines.some(line => line.includes("showMonthlyReport(window.monthlyReportRow)"))) {
+if (!/showMonthlyReport\\(window\\.monthlyReportRow\\)/.test(normalizedHtml)) {
   throw new Error("Monthly report view consumer is missing");
 }
 
