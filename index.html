@@ -794,15 +794,15 @@ document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sa
 function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 window.setSupabaseReports = function(rows){
- const list=Array.isArray(rows)?rows:[];
- const monthly=list.filter(r=>r&&r.report_type==='monthly_sales'&&r.status==='validated'&&r.period_start&&r.period_end&&r.totals&&r.totals.total!=null);
+ const list=(Array.isArray(rows)?rows:[]).filter(r=>r&&typeof r==='object');
+ const monthly=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated'&&r.period_start&&r.period_end&&r.totals&&typeof r.totals==='object'&&r.totals.total!=null);
  const latestByMonth=new Map();
  for(const row of monthly){
   const key=String(row.period_start).slice(0,7);
   const prev=latestByMonth.get(key);
   if(!prev||(row.imported_at||'')>(prev.imported_at||''))latestByMonth.set(key,row);
  }
- const monthlyHistory=[...latestByMonth.entries()].map(([month,row])=>({month,total:Number(row?.totals?.total),row})).filter(x=>Number.isFinite(x.total)).sort((a,b)=>a.month.localeCompare(b.month));
+ const monthlyHistory=[...latestByMonth.entries()].filter(([,row])=>row&&row.totals&&typeof row.totals==='object').map(([month,row])=>({month,total:Number(row.totals.total),row})).filter(x=>Number.isFinite(x.total)).sort((a,b)=>a.month.localeCompare(b.month));
  const nowParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).split('-').map(Number);
  const currentYear=nowParts[0],currentMonth=nowParts[1],currentDay=nowParts[2];
  const currentMonthKey=currentYear+'-'+String(currentMonth).padStart(2,'0');
@@ -814,7 +814,7 @@ window.setSupabaseReports = function(rows){
  const monthTotal=currentRow?.total;
  setText('monthlyOverviewTotal',monthTotal!=null?money(monthTotal):'Relatório mensal não importado');
  if(currentRow){
-  const mt=currentRow.row.totals||{};
+  const mt=currentRow.row&&currentRow.row.totals&&typeof currentRow.row.totals==='object'?currentRow.row.totals:{};
   setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Período '+currentRow.row.period_start+' a '+currentRow.row.period_end+'.');
   setText('monthlyReviewState','Validado · '+formatReportDate(currentRow.row.imported_at));
  }else{
@@ -829,9 +829,9 @@ window.setSupabaseReports = function(rows){
   if(!currentRow){
    statusEl.textContent='A comparação de '+String(currentMonth).padStart(2,'0')+'/'+currentYear+' aparecerá quando o relatório atual estiver importado. Valores históricos não serão estimados.';
   }else{
-   const endDay=Number(String(currentRow.row.period_end).slice(8,10))||currentDay;
+   const endDay=Number(String(currentRow.row&&currentRow.row.period_end||'').slice(8,10))||currentDay;
    statusEl.textContent='Mesmo mês e mesmo corte de dias (até dia '+endDay+'). Comparação histórica só aparece quando houver um relatório validado para esse período equivalente.';
-   const comparable=prior.filter(x=>Number(String(x.row.period_end).slice(8,10))===endDay);
+   const comparable=prior.filter(x=>Number(String(x.row&&x.row.period_end||'').slice(8,10))===endDay);
    for(const item of comparable){
     const pct=item.total===0?null:((monthTotal-item.total)/item.total)*100;
     const line=document.createElement('div');line.className='monthly-year-row';
@@ -857,7 +857,7 @@ window.setSupabaseReports = function(rows){
    const item=latestByMonth.get(key);
    const row=document.createElement('div');row.className='year-month-row';
    const label=document.createElement('span');label.textContent=months[m-1];
-   const value=document.createElement('strong');value.textContent=item&&item.totals&&item.totals.total!=null?money(Number(item.totals.total)):'Sem relatório validado';
+   const value=document.createElement('strong');value.textContent=item&&item.totals&&typeof item.totals==='object'&&item.totals.total!=null?money(Number(item.totals.total)):'Sem relatório validado';
    row.append(label,value);yearList.appendChild(row);
   }
   yearStatus.textContent='Ano civil de '+currentYear+'. Meses sem captura validada ficam em aberto, não entram no YTD.';
