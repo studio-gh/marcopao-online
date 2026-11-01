@@ -100,6 +100,8 @@
 .seven-day-table .missing-day{color:#9b6d45;background:#fffaf3}
 .seven-day-foot{font-size:10px;color:var(--muted);line-height:1.5;margin:10px 0 0}
 @media(max-width:700px){.seven-day-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.seven-day-heading{align-items:flex-start}}
+
+.year-overview{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;margin:0 0 20px}.year-ytd{padding:8px 4px}.year-months{border-left:1px solid var(--line);padding-left:24px}.year-month-list{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin-top:10px}.year-month-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #eff0eb;font-size:12px}.year-month-row span{color:var(--muted);text-transform:capitalize}.year-month-row strong{font-variant-numeric:tabular-nums;text-align:right}.year-month-row strong:where(:not(:empty)){max-width:65%}@media(max-width:650px){.year-overview{grid-template-columns:1fr;gap:14px}.year-months{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.year-month-list{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -234,6 +236,11 @@
       <tr><td>Data do relatório</td><td id="dateCheck">Não identificada</td></tr>
       </tbody></table></div>
     </div>
+  </section>
+  <section class="section-head" style="margin-top:30px"><div><h2>Ano em perspectiva</h2><p>Faturamento mensal e acumulado no ano, considerando apenas meses com relatório validado.</p></div><span class="tag">YEAR TO DATE</span></section>
+  <section class="panel year-overview" id="yearOverview">
+    <div class="year-ytd"><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DO ANO</div><div class="showcase-number" id="ytdTotal">Aguardando relatórios mensais</div><div class="showcase-caption" id="ytdCaption">O acumulado será calculado após a validação dos relatórios mensais.</div></div>
+    <div class="year-months"><div class="monthly-year-heading">Mês a mês · ano atual</div><div id="yearMonthlyStatus" class="monthly-year-status">Aguardando relatórios mensais.</div><div id="yearMonthlyList" class="year-month-list"></div></div>
   </section>
   <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Resumo executivo com dados importados e pendências claramente sinalizadas.</p></div><span class="tag">VISÃO DE GESTÃO</span></section>
   <section class="showcase-grid" id="businessOverview">
@@ -782,95 +789,76 @@ document.getElementById('resetBtn').onclick=()=>{data={...base};selectedType='sa
 function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
 
 window.setSupabaseReports = function(rows){
- const list=rows||[];
- window.structuredReports={};
- const trustRows=list.filter(r=>r.status!=='rejected').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''));
- const globalTrusted=trustRows.length>0&&trustRows.every(r=>r.status==='validated');
- const trustBanner=document.getElementById('trustBanner');
- if(trustBanner){trustBanner.dataset.level=globalTrusted?'ok':'blocked';trustBanner.innerHTML=globalTrusted?'<span class="trust-icon">✓</span><div><strong>Dados validados</strong><span>Os relatórios visíveis passaram pelo status de validação do sistema.</span></div>':'<span class="trust-icon">!</span><div><strong>Dados aguardando validação</strong><span>Há importações pendentes de conferência. Os indicadores são exploratórios e não devem orientar compras, produção ou fechamento financeiro.</span></div>';}
- window.monthlyReportRow=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
- const types={'top_value':'top-value','top_quantity':'top-quantity','ticket_average':'ticket','sales_by_group':'sales-group','products_by_group':'products-group'};
- window.pendingStructuredReports={};
- for(const row of list){
-  if(!types[row.report_type])continue;
-  const key=types[row.report_type];
-  if(row.status!=='validated'){
-   const previous=window.pendingStructuredReports[key];
-   if(!previous||(row.imported_at||'')>(previous.importedAt||''))window.pendingStructuredReports[key]={status:row.status||'needs_review',importedAt:row.imported_at||'',periodStart:row.period_start||'',periodEnd:row.period_end||'',branch:row.branch_name_raw||'',warnings:Array.isArray(row.totals?.validation_warnings)?row.totals.validation_warnings:[]};
-   continue;
-  }
-  // The public summary view intentionally contains no raw Telegram text.
-  const entries=Array.isArray(row.totals?.entries)?row.totals.entries:[];
-  const formatted=entries.map(item=>{
-   const bits=[];
-   if(item.rank!=null)bits.push(String(item.rank)+'.');
-   if(item.name)bits.push(String(item.name));
-   if(item.value!=null&&Number.isFinite(Number(item.value)))bits.push('Faturamento '+money(Number(item.value)));
-   if(item.quantity!=null&&Number.isFinite(Number(item.quantity)))bits.push('Quantidade '+Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:3})+(item.unit?' '+item.unit:''));
-   const average=item.average??item.unit_price;
-   if(average!=null&&Number.isFinite(Number(average)))bits.push('Preço médio '+money(Number(average)));
-   return bits.join(' · ');
-  }).filter(Boolean).join('\n');
-  if(window.structuredReports[key])continue; // Rows are newest-first: keep the newest snapshot per report type.
-  const rec={text:formatted,date:row.period_end||row.report_date||row.period_start||'',branch:row.branch_name_raw||'',status:row.status||'needs_review',entryCount:entries.length};
-  importedReports[key]=rec;
-  window.structuredReports[key]={...rec,entries,reportType:row.report_type,periodStart:row.period_start||'',periodEnd:row.period_end||'',importedAt:row.imported_at||'',rawText:entries.map(item=>item.raw||'').join('\\n\\n')};
+ const list=Array.isArray(rows)?rows:[];
+ const monthly=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated'&&r.period_start&&r.period_end&&r.totals?.total!=null);
+ const latestByMonth=new Map();
+ for(const row of monthly){
+  const key=String(row.period_start).slice(0,7);
+  const prev=latestByMonth.get(key);
+  if(!prev||(row.imported_at||'')>(prev.imported_at||''))latestByMonth.set(key,row);
  }
- window.monthlySnapshot=window.monthlyReportRow?.totals?.total!=null?window.monthlyReportRow.totals:null;
- const latestByType=(type)=>list.filter(r=>r.report_type===type&&r.status==='validated').sort((a,b)=>(b.imported_at||'').localeCompare(a.imported_at||''))[0]||null;
- const groupRow=latestByType('sales_by_group');
- const productGroupRow=latestByType('products_by_group');
- const valueRankRow=latestByType('top_value');
- const groupEntries=groupRow?.totals?.entries||[];
- groupSales=groupEntries.filter(item=>item&&item.name&&Number.isFinite(Number(item.value))).map(item=>({
-  name:item.name,value:Number(item.value),
-  quantity:Number.isFinite(Number(item.quantity))?Number(item.quantity):null,
-  average:Number.isFinite(Number(item.average))?Number(item.average):null
- }));
- // Top 100 by value is the direct source for the production/revenue Top 10; use report 13 only as fallback.
- const productRankRow=valueRankRow||productGroupRow;
- // Prefer report 13 for product/group operational detail; report 3 is the revenue ranking fallback.
- productSales=productGroupRow?.totals?.entries?.length ? productGroupRow.totals.entries : (productRankRow?.totals?.entries||[]);
- renderGroupBars();
- renderProductionRows(productSales,productRankRow);
- setText('monthlyOverviewTotal',window.monthlyReportRow?.totals?.total!=null?money(Number(window.monthlyReportRow.totals.total)):'Relatório mensal não importado');
- if(window.monthlyReportRow){
-  const mt=window.monthlyReportRow.totals||{};
-  setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Importado em '+formatReportDate(window.monthlyReportRow.imported_at));
-  setText('monthlyReviewState',window.monthlyReportRow.status==='validated'?'Validado':'Pendente de revisão');
+ const monthlyHistory=[...latestByMonth.entries()].map(([month,row])=>({month,total:Number(row.totals.total),row})).filter(x=>Number.isFinite(x.total)).sort((a,b)=>a.month.localeCompare(b.month));
+ const nowParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).split('-').map(Number);
+ const currentYear=nowParts[0],currentMonth=nowParts[1],currentDay=nowParts[2];
+ const currentMonthKey=currentYear+'-'+String(currentMonth).padStart(2,'0');
+ const currentRow=latestByMonth.get(currentMonthKey)||null;
+ const ytdRows=monthlyHistory.filter(x=>Number(x.month.slice(0,4))===currentYear&&Number(x.month.slice(5,7))<=currentMonth);
+ const ytdTotal=ytdRows.reduce((sum,x)=>sum+x.total,0);
+ window.monthlyReportRow=currentRow;
+ window.monthlySnapshot=currentRow?.row?.totals||null;
+ const monthTotal=currentRow?.total;
+ setText('monthlyOverviewTotal',monthTotal!=null?money(monthTotal):'Relatório mensal não importado');
+ if(currentRow){
+  const mt=currentRow.row.totals||{};
+  setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Período '+currentRow.row.period_start+' a '+currentRow.row.period_end+'.');
+  setText('monthlyReviewState','Validado · '+formatReportDate(currentRow.row.imported_at));
  }else{
-  setText('monthlyOverviewCaption','Aguardando importação do relatório 2 do Monitorbot.');
-  setText('monthlyReviewState','Sem relatório');
+  setText('monthlyOverviewCaption','Aguardando importação do relatório acumulado do mês atual.');
+  setText('monthlyReviewState','Sem relatório validado');
  }
- const yearNow=new Date();
- const currentMonth=String(yearNow.getMonth()+1).padStart(2,'0');
- const currentYear=yearNow.getFullYear();
- const monthlyRows=list.filter(r=>r.report_type==='monthly_sales'&&r.status==='validated'&&r.period_start&&String(r.period_start).slice(5,7)===currentMonth);
- const byYear=new Map();
- for(const row of monthlyRows){const year=Number(String(row.period_start).slice(0,4));const total=Number(row.totals?.total);if(Number.isFinite(year)&&Number.isFinite(total)){const prev=byYear.get(year);if(!prev||(row.imported_at||'')>(prev.imported_at||''))byYear.set(year,{total,imported_at:row.imported_at});}}
- const currentTotal=byYear.get(currentYear)?.total;
  const statusEl=document.getElementById('monthlyYearStatus');
  const listEl=document.getElementById('monthlyYearList');
  if(statusEl&&listEl){
   listEl.innerHTML='';
-  if(currentTotal==null){statusEl.textContent='O relatório acumulado de '+yearNow.toLocaleDateString('pt-BR',{month:'long'})+' de '+currentYear+' ainda não foi importado. Assim que chegar, os percentuais serão calculados automaticamente.';}
-  else{
-   const years=[...byYear.keys()].filter(y=>y<currentYear).sort((a,b)=>b-a);
-   statusEl.textContent='Variação do faturamento acumulado de '+yearNow.toLocaleDateString('pt-BR',{month:'long'})+' contra o mesmo mês de cada ano.';
-   if(!years.length)statusEl.textContent+=' Ainda não há histórico validado para comparação.';
-   for(const year of years){
-    const prior=byYear.get(year).total;
-    const delta=prior===0?null:((currentTotal-prior)/prior)*100;
-    const row=document.createElement('div');row.className='monthly-year-row';
-    const label=document.createElement('span');label.textContent=year+' · '+money(prior);
-    const value=document.createElement('strong');value.textContent=delta==null?'Base zero':(delta>0?'+':'')+delta.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
-    if(delta!=null)value.className=delta>=0?'positive':'negative';
-    row.append(label,value);listEl.append(row);
+  const prior=monthlyHistory.filter(x=>x.month.slice(5,7)===String(currentMonth).padStart(2,'0')&&Number(x.month.slice(0,4))<currentYear).sort((a,b)=>b.month.localeCompare(a.month));
+  if(!currentRow){
+   statusEl.textContent='A comparação de '+String(currentMonth).padStart(2,'0')+'/'+currentYear+' aparecerá quando o relatório atual estiver importado. Valores históricos não serão estimados.';
+  }else{
+   const endDay=Number(String(currentRow.row.period_end).slice(8,10))||currentDay;
+   statusEl.textContent='Mesmo mês e mesmo corte de dias (até dia '+endDay+'). Comparação histórica só aparece quando houver um relatório validado para esse período equivalente.';
+   const comparable=prior.filter(x=>Number(String(x.row.period_end).slice(8,10))===endDay);
+   for(const item of comparable){
+    const pct=item.total===0?null:((monthTotal-item.total)/item.total)*100;
+    const line=document.createElement('div');line.className='monthly-year-row';
+    const label=document.createElement('span');label.textContent=item.month.slice(0,4)+' · '+money(item.total);
+    const value=document.createElement('strong');value.textContent=pct==null?'Base zero':(pct>0?'+':'')+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+    if(pct!=null)value.className=pct>=0?'positive':'negative';
+    line.append(label,value);listEl.appendChild(line);
    }
+   if(!comparable.length)statusEl.textContent+=' Nenhum ano anterior validado com o mesmo corte de dias.';
   }
  }
- if(selectedType==='sale-month'||["top-value","top-quantity","ticket","products-group"].includes(selectedType))applyFilters();
+ const ytdTotalEl=document.getElementById('ytdTotal');
+ const ytdCaptionEl=document.getElementById('ytdCaption');
+ if(ytdTotalEl)ytdTotalEl.textContent=ytdRows.length?money(ytdTotal):'Aguardando relatórios mensais';
+ if(ytdCaptionEl)ytdCaptionEl.textContent=ytdRows.length+' mês(es) com relatório validado em '+currentYear+' · acumulado somente de meses únicos, sem duplicar revisões.';
+ const yearList=document.getElementById('yearMonthlyList');
+ const yearStatus=document.getElementById('yearMonthlyStatus');
+ if(yearList&&yearStatus){
+  yearList.innerHTML='';
+  const months=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  for(let m=1;m<=currentMonth;m++){
+   const key=currentYear+'-'+String(m).padStart(2,'0');
+   const item=latestByMonth.get(key);
+   const row=document.createElement('div');row.className='year-month-row';
+   const label=document.createElement('span');label.textContent=months[m-1];
+   const value=document.createElement('strong');value.textContent=item?money(Number(item.totals.total)):'Sem relatório validado';
+   row.append(label,value);yearList.appendChild(row);
+  }
+  yearStatus.textContent='Ano civil de '+currentYear+'. Meses sem captura validada ficam em aberto, não entram no YTD.';
+ }
 };
+
 
 window.setSupabaseDailyReports = function(rows){
  const remote=(rows||[]).map(row=>{
