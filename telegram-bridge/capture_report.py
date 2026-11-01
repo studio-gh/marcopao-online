@@ -771,6 +771,14 @@ def report_target_period(report_type, now):
             return now.date().isoformat()
         return (now.date() - timedelta(days=1)).isoformat()
     if report_type == "monthly_sales":
+        requested_month = os.environ.get("MONTHLY_REPORT_PERIOD", "").strip()
+        if requested_month:
+            if not re.fullmatch(r"\\d{4}-\\d{2}", requested_month):
+                raise ValueError("MONTHLY_REPORT_PERIOD must use YYYY-MM.")
+            month_number = int(requested_month[5:7])
+            if month_number < 1 or month_number > 12:
+                raise ValueError("MONTHLY_REPORT_PERIOD month must be 01 through 12.")
+            return requested_month
         return now.strftime("%Y-%m")
     return now.strftime("%Y-%m")
 
@@ -1237,6 +1245,9 @@ async def main():
             return 2
         modes = [REPORT_MODES[mode]]
     local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    if mode != "monthly_accumulated" and os.environ.get("MONTHLY_REPORT_PERIOD", "").strip():
+        print("MONTHLY_REPORT_PERIOD is only valid with REPORT_MODE=monthly_accumulated.")
+        return 2
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
     session = os.environ.get("TELEGRAM_SESSION_STRING", "").strip()
