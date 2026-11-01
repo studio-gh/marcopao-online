@@ -477,7 +477,12 @@ function showMonthlySnapshot(m){
  setText('filterStatus','Venda acumulada de outubro · '+money(total)+' · 12.584 cupons. Status: pendente de revisão.');
 }
 function showMonthlyReport(row){
- const t=row.totals||{}, m={
+ if(!row||!row.totals||typeof row.totals!=='object'){
+  setText('heroTotal','Relatório mensal indisponível');
+  setText('filterStatus','O registro mensal recebido não contém totais estruturados.');
+  return;
+ }
+ const t=row.totals, m={
   total:Number(t.total),cash:Number(t.dinheiro),pix:Number(t.pix),tef:Number(t.tef),
   posCredit:Number(t.pos_credito||0),posDebit:Number(t.pos_debito||0),ticketMethod:Number(t.ticket_pagamento||0),
   coupons:Number(t.cupons||0),ticket:Number(t.ticket_medio||0),cancelCoupons:Number(t.cupons_cancelados||0),
