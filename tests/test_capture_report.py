@@ -20,10 +20,6 @@ report_content_hash = MODULE.report_content_hash
 find_report_payload = MODULE.find_report_payload
 report_title_match = MODULE.report_title_match
 is_report_menu_message = MODULE.is_report_menu_message
-
-
-
-
 class ReportTargetPeriodTests(unittest.TestCase):
     def test_monthly_report_target_period_can_be_selected_explicitly(self):
         from unittest.mock import patch
