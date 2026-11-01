@@ -456,3 +456,25 @@ Preço Médio Venda:R$24,99
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MonthlySelectorSafetyTests(unittest.TestCase):
+    def test_monthly_selector_requires_confirmed_year_and_month(self):
+        from unittest.mock import patch
+        async def scenario():
+            class FakeMessage:
+                def __init__(self, message, labels, msg_id):
+                    self.message = message
+                    self.reply_markup = None
+                    self.id = msg_id
+                    self._labels = labels
+            latest = FakeMessage("Selecione a opção desejada no teclado", ["Hoje", "Dia anterior", "Semana", "Mes", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"], 1)
+            async def send_choice(client, entity, current, choice, reason):
+                return current, [FakeMessage("Venda Acumulada do Mês de Outubro", ["Sim", "Não"], 2)]
+            async def latest_incoming(client, entity):
+                return latest
+            with patch.object(MODULE, "send_choice", side_effect=send_choice), patch.object(MODULE, "latest_incoming", side_effect=latest_incoming):
+                with self.assertRaisesRegex(RuntimeError, "Year selector was not confirmed"):
+                    await MODULE.resolve_period_selectors(None, None, latest, [], "2025-10", "monthly_sales")
+        import asyncio
+        asyncio.run(scenario())
