@@ -23,6 +23,17 @@ is_report_menu_message = MODULE.is_report_menu_message
 
 
 
+
+    def test_monthly_report_target_period_can_be_selected_explicitly(self):
+        from unittest.mock import patch
+        now = MODULE.datetime(2026, 11, 1, 8, 0)
+        with patch.dict("os.environ", {"MONTHLY_REPORT_PERIOD": "2025-10"}):
+            self.assertEqual(MODULE.report_target_period("monthly_sales", now), "2025-10")
+        with patch.dict("os.environ", {"MONTHLY_REPORT_PERIOD": "2025-13"}):
+            with self.assertRaises(ValueError):
+                MODULE.report_target_period("monthly_sales", now)
+
+
 class ParseTotalsTests(unittest.TestCase):
     def test_parses_brazilian_currency_and_reconciles_payments(self):
         raw = """Venda do Dia
