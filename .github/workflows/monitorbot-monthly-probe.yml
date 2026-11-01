@@ -100,7 +100,7 @@ jobs:
                   period = match.group(1)
           if period:
               with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-                  env.write(f"MONTHLY_REPORT_PERIOD={period}\\n")
+                  env.write(f"MONTHLY_REPORT_PERIOD={period}\n")
               print(f"Monthly sales target set to {period}")
           else:
               print("No explicit monthly target supplied; collector default applies.")
