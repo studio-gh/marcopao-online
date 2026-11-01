@@ -33,6 +33,12 @@ class MonthlyBackfillRangeTests(unittest.TestCase):
 
 
 class ReportTargetPeriodTests(unittest.TestCase):
+    def test_monthly_backfill_range_validator_accepts_yyyy_mm(self):
+        import re
+        self.assertTrue(re.fullmatch(r"\d{4}-\d{2}", "2025-10"))
+        self.assertFalse(re.fullmatch(r"\d{4}-\d{2}", "2025-1"))
+        self.assertFalse(re.fullmatch(r"\d{4}-\d{2}", "25-10"))
+
     def test_monthly_report_target_period_can_be_selected_explicitly(self):
         from unittest.mock import patch
         now = MODULE.datetime(2026, 11, 1, 8, 0)
