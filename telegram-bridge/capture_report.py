@@ -1236,7 +1236,24 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
 
 async def main():
     mode = os.environ.get("REPORT_MODE", "daily_yesterday").strip()
-    if mode == "all_reports":
+    backfill_start = os.environ.get("MONTHLY_BACKFILL_START", "").strip()
+    backfill_end = os.environ.get("MONTHLY_BACKFILL_END", "").strip()
+    backfill_months = []
+    if mode == "monthly_backfill":
+        if not (re.fullmatch(r"\\d{4}-\\d{2}", backfill_start) and re.fullmatch(r"\\d{4}-\\d{2}", backfill_end)):
+            print("MONTHLY_BACKFILL_START and MONTHLY_BACKFILL_END must use YYYY-MM.")
+            return 2
+        start_date = datetime.strptime(backfill_start, "%Y-%m")
+        end_date = datetime.strptime(backfill_end, "%Y-%m")
+        if start_date > end_date or (end_date.year - start_date.year) * 12 + end_date.month - start_date.month > 48:
+            print("Invalid backfill range: start must precede end and span at most 49 months.")
+            return 2
+        cursor = end_date
+        while cursor >= start_date:
+            backfill_months.append(cursor.strftime("%Y-%m"))
+            cursor = (cursor.replace(day=1) - timedelta(days=1)).replace(day=1)
+        modes = ["monthly_sales"]
+    elif mode == "all_reports":
         modes = list(REPORT_OPTIONS.values())
     else:
         allowed = set(REPORT_MODES)
@@ -1245,8 +1262,8 @@ async def main():
             return 2
         modes = [REPORT_MODES[mode]]
     local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    if mode != "monthly_accumulated" and os.environ.get("MONTHLY_REPORT_PERIOD", "").strip():
-        print("MONTHLY_REPORT_PERIOD is only valid with REPORT_MODE=monthly_accumulated.")
+    if mode not in {"monthly_accumulated", "monthly_backfill"} and os.environ.get("MONTHLY_REPORT_PERIOD", "").strip():
+        print("MONTHLY_REPORT_PERIOD is only valid with monthly report modes.")
         return 2
     api_id = os.environ.get("TELEGRAM_API_ID", "").strip()
     api_hash = os.environ.get("TELEGRAM_API_HASH", "").strip()
@@ -1266,26 +1283,35 @@ async def main():
             print("SESSION_NOT_AUTHORIZED")
             return 4
         entity = await client.get_entity(BOT)
-        for report_type in modes:
-            try:
-                # Recover to a known menu between reports; one Telegram chat is shared, so collect serially.
-                now_msg = await latest_incoming(client, entity)
-                if now_msg and ("precisa se logar" in norm(now_msg.message).lower() or "precisa fazer login" in norm(now_msg.message).lower()):
-                    await ensure_bellabyte_login(client, entity, now_msg)
-                requested_period = report_target_period(report_type, local_now)
-                await collect_one_report(client, entity, report_type, requested_period, local_now)
-                succeeded.append(report_type)
-            except Exception as exc:
-                failed.append({"report_type": report_type, "error": str(exc)})
-                print(f"COLLECTION_FAILED report_type={report_type}: {type(exc).__name__}: {exc}")
-                # A failed navigation can leave the chat in an unknown state; attempt reset before next type.
+        period_queue = backfill_months if mode == "monthly_backfill" else [None]
+        for requested_month in period_queue:
+            if mode == "monthly_backfill":
+                os.environ["MONTHLY_REPORT_PERIOD"] = requested_month
+            for report_type in modes:
                 try:
-                    latest_msg = await latest_incoming(client, entity)
-                    if latest_msg:
-                        await send_choice(client, entity, latest_msg, "0", "reset menu after failed report")
-                except Exception as reset_exc:
-                    print(f"MENU_RESET_FAILED after {report_type}: {type(reset_exc).__name__}")
-                    break
+                    # One Telegram connection, strictly sequential months, newest historical month first.
+                    now_msg = await latest_incoming(client, entity)
+                    if now_msg and ("precisa se logar" in norm(now_msg.message).lower() or "precisa fazer login" in norm(now_msg.message).lower()):
+                        await ensure_bellabyte_login(client, entity, now_msg)
+                    requested_period = requested_month or report_target_period(report_type, local_now)
+                    await collect_one_report(client, entity, report_type, requested_period, local_now)
+                    succeeded.append({"report_type": report_type, "period": requested_period})
+                except Exception as exc:
+                    failed.append({"report_type": report_type, "period": requested_month, "error": str(exc)})
+                    print(f"COLLECTION_FAILED report_type={report_type} period={requested_month or 'default'}: {type(exc).__name__}: {exc}")
+                    try:
+                        latest_msg = await latest_incoming(client, entity)
+                        if latest_msg:
+                            await send_choice(client, entity, latest_msg, "0", "reset menu after failed report")
+                    except Exception as reset_exc:
+                        print(f"MENU_RESET_FAILED after {report_type}: {type(reset_exc).__name__}")
+                        return 1
+                    if mode == "monthly_backfill":
+                        # Stop at first failure; resume can safely restart from that month after inspection.
+                        print("BACKFILL_PAUSED_AT=" + str(requested_month))
+                        print("COLLECTION_SUMMARY=" + json.dumps({"succeeded": succeeded, "failed": failed}, ensure_ascii=False))
+                        return 1
+        os.environ.pop("MONTHLY_REPORT_PERIOD", None)
         print("COLLECTION_SUMMARY=" + json.dumps({"succeeded": succeeded, "failed": failed}, ensure_ascii=False))
         return 0 if not failed else 1
     finally:
