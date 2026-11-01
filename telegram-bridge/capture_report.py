@@ -773,7 +773,7 @@ def report_target_period(report_type, now):
     if report_type == "monthly_sales":
         requested_month = os.environ.get("MONTHLY_REPORT_PERIOD", "").strip()
         if requested_month:
-            if not re.fullmatch(r"\\d{4}-\\d{2}", requested_month):
+            if not re.fullmatch(r"\d{4}-\d{2}", requested_month):
                 raise ValueError("MONTHLY_REPORT_PERIOD must use YYYY-MM.")
             month_number = int(requested_month[5:7])
             if month_number < 1 or month_number > 12:
