@@ -3,3 +3,6 @@ Period: 2025-10
 Report: monthly_sales
 Source: Monitorbot Telegram
 Requested by: authorized repository workflow trigger
+
+Retry: explicit period export fix
+Attempt: 2
