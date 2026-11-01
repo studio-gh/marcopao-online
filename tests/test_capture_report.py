@@ -474,7 +474,7 @@ class MonthlySelectorSafetyTests(unittest.TestCase):
             async def latest_incoming(client, entity):
                 return latest
             with patch.object(MODULE, "send_choice", side_effect=send_choice), patch.object(MODULE, "latest_incoming", side_effect=latest_incoming):
-                with self.assertRaisesRegex(RuntimeError, "Year selector was not confirmed"):
+                with self.assertRaisesRegex(RuntimeError, "did not expose a selectable outubro option"):
                     await MODULE.resolve_period_selectors(None, None, latest, [], "2025-10", "monthly_sales")
         import asyncio
         asyncio.run(scenario())
