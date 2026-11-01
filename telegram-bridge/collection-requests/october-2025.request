@@ -6,3 +6,6 @@ Requested by: authorized repository workflow trigger
 
 Retry: explicit period export fix
 Attempt: 2
+
+Retry: newline export corrected
+Attempt: 3
