@@ -8,13 +8,13 @@ const html = readFileSync("index.html", "utf8");
 
 // Integration contract checks: validate monthly data shape and duplicate handlers.
 const normalizedHtml = html.replace(/\\s+/g, " ");
-if (!/window\\.monthlyReportRow\\s*=\\s*currentMonthlyRecord\\s*;/.test(normalizedHtml)) {
+if (!normalizedHtml.includes("window.monthlyReportRow=currentMonthlyRecord;")) {
   throw new Error("Monthly report public state must expose the raw Supabase row");
 }
-if (!/window\\.monthlySnapshot\\s*=\\s*currentMonthlyRecord\\?\\.totals\\s*\\|\\|\\s*null\\s*;/.test(normalizedHtml)) {
+if (!normalizedHtml.includes("window.monthlySnapshot=currentMonthlyRecord?.totals||null;")) {
   throw new Error("Monthly snapshot must expose the raw totals object");
 }
-if (!/showMonthlyReport\\(window\\.monthlyReportRow\\)/.test(normalizedHtml)) {
+if (!normalizedHtml.includes("showMonthlyReport(window.monthlyReportRow)")) {
   throw new Error("Monthly report view consumer is missing");
 }
 
