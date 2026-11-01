@@ -92,10 +92,10 @@ jobs:
           with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
               event = json.load(f)
           message = event.get("head_commit", {}).get("message", "")
-          match = re.search(r"\\[collect-report:monthly_sales:(20\\d{2}-(?:0[1-9]|1[0-2]))\\]", message)
+          match = re.search(r"\[collect-report:monthly_sales:(20\d{2}-(?:0[1-9]|1[0-2]))\]", message)
           if match:
               with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-                  env.write(f"MONTHLY_REPORT_PERIOD={match.group(1)}\\n")
+                  env.write(f"MONTHLY_REPORT_PERIOD={match.group(1)}\n")
               print(f"Tagged monthly sales collection requested for {match.group(1)}")
           else:
               print("No tagged historical month in this commit.")
