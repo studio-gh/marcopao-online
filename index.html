@@ -866,19 +866,19 @@ window.setSupabaseReports = function(rows){
 
 
 window.setSupabaseDailyReports = function(rows){
- const remote=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row==='object').map(row=>{
-  const t=row.totals&&typeof row.totals==='object'?row.totals:{}, date=row.report_date||row.period_start||'';
+ const validRows=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row==='object'&&row.status==='validated');
+ const remote=validRows.map(row=>{
+  const totals=row.totals&&typeof row.totals==='object'?row.totals:{};
+  const date=row.report_date||row.period_start||'';
   return {date:String(date).slice(0,10),branch:row.branch_name_raw||'Filial não identificada',
-   metrics:{total:t.total==null?null:Number(t.total),coupons:t.cupons==null?null:Number(t.cupons),ticket:t.ticket_medio==null?null:Number(t.ticket_medio)},
-   cardDetails:t.card_details||null,status:row.status||'needs_review',source:'supabase',importedAt:row.imported_at||''};
- }).filter(row=>row.date&&row.status==='validated'&&Number.isFinite(row.metrics.total));
+   metrics:{total:totals.total==null?null:Number(totals.total),coupons:totals.cupons==null?null:Number(totals.cupons),ticket:totals.ticket_medio==null?null:Number(totals.ticket_medio)},
+   cardDetails:totals.card_details||null,status:'validated',source:'supabase',importedAt:row.imported_at||''};
+ }).filter(row=>/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)&&Number.isFinite(row.metrics.total));
  remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
- const latestPerDay=new Map();for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
- const uniqueDailyReports=[...latestPerDay.values()];
- // Only database rows explicitly validated may enter operational daily comparisons.
- // Never fall back to browser cache: it may contain stale or manually imported unreviewed data.
- dailyReports=uniqueDailyReports;
- localStorage.setItem('marcopao.dailyReports',JSON.stringify(uniqueDailyReports));
+ const latestPerDay=new Map();
+ for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
+ dailyReports=[...latestPerDay.values()];
+ localStorage.setItem('marcopao.dailyReports',JSON.stringify(dailyReports));
  if(selectedType==='sale-day')applyFilters();
 };
 
@@ -939,12 +939,10 @@ async function refreshDailyRows() {
       .order('imported_at', {ascending:false})
       .limit(200);
     if (error) throw error;
-    const rows = (Array.isArray(data)?data:[]).filter(row=>row&&typeof row==='object').map(row => ({
-      ...row,
-      id: [row.report_type,row.branch_name_raw,row.report_date||row.period_start].join('|'),
-      totals: row.totals&&typeof row.totals==='object'?row.totals:{},
-      validation_notes: Array.isArray(row.totals?.validation_warnings) ? row.totals.validation_warnings : []
-    }));
+    const rows = (Array.isArray(data)?data:[]).filter(row=>row&&typeof row==='object').map(row => {
+      const totals=row.totals&&typeof row.totals==='object'?row.totals:{};
+      return {...row,id:[row.report_type,row.branch_name_raw,row.report_date||row.period_start].join('|'),totals,validation_notes:Array.isArray(totals.validation_warnings)?totals.validation_warnings:[]};
+    });
     lastSuccessfulSyncAt = new Date().toISOString();
     if (root) root.dataset.state = 'ok';
     if (state) state.textContent = 'Dados sincronizados';
@@ -956,6 +954,15 @@ async function refreshDailyRows() {
     if (latestReportEl) latestReportEl.textContent = latestReport ? formatClock(latestReport) : 'Nenhum relatório importado';
     window.setSupabaseReports(rows);
     window.setSupabaseDailyReports(rows.filter(row => row&&row.report_type === 'sale_day'));
+    const validDailyCount=rows.filter(row=>row.report_type==='sale_day'&&row.status==='validated').length;
+    const trustBanner=document.getElementById('trustBanner');
+    if(trustBanner){
+      const title=trustBanner.querySelector('strong'),body=trustBanner.querySelector('span:not(.trust-icon)'),icon=trustBanner.querySelector('.trust-icon');
+      trustBanner.dataset.level='ok';
+      if(icon)icon.textContent='✓';
+      if(title)title.textContent='Dados validados do Supabase';
+      if(body)body.textContent=validDailyCount+' relatório(s) diário(s) validados disponíveis. Apenas dados aprovados entram nos indicadores oficiais.';
+    }
     const dailyCount = rows.filter(row => row.report_type === 'sale_day').length;
     const monthlyCount = rows.filter(row => row.report_type === 'monthly_sales').length;
     const productCount = rows.filter(row => ['top_value','top_quantity','ticket_average','sales_by_group','products_by_group'].includes(row.report_type)).length;
