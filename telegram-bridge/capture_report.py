@@ -975,8 +975,10 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
     target_month = month_names[int(target_date[5:7])]
     target_year = int(target_date[:4])
     current_year = datetime.now(ZoneInfo("America/Sao_Paulo")).year
+    year_confirmed = target_year == current_year
+    month_confirmed = False
 
-    for _ in range(4):
+    for _ in range(6):
         prompt = norm(latest.message).lower()
         labels = [label.strip() for label in buttons(latest)]
         labels_low = [label.lower() for label in labels]
@@ -989,6 +991,7 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
                 raise RuntimeError(f"Monitorbot did not respond to {desired} selection for {report_type}.")
             replies.extend(more)
             latest = await latest_incoming(client, entity) or more[-1]
+            year_confirmed = True
             continue
 
         day_options = [label for label in labels if "dia anterior" in label.lower() or label.lower() == "anterior"]
@@ -1006,13 +1009,20 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
         month_prompt = any(term in prompt for term in ("selecione o mês", "selecione a opção desejada", "selecione o periodo", "selecione o período", "mês desejado", "escolha o mês"))
         has_group_scope = "todos" in labels_low and report_type in {"ticket_average", "products_by_group"}
         if month_options and not has_group_scope and (month_prompt or labels):
+            if not year_confirmed:
+                raise RuntimeError(f"Year selector was not confirmed before selecting {target_month} for {report_type}.")
             latest, more = await send_choice(client, entity, latest, month_options[0], f"select {target_month} for {report_type}")
             if not more:
                 raise RuntimeError(f"Monitorbot did not respond to {target_month} selection for {report_type}.")
             replies.extend(more)
             latest = await latest_incoming(client, entity) or more[-1]
+            month_confirmed = True
             continue
+        if report_type == "monthly_sales" and not month_confirmed:
+            raise RuntimeError(f"Monitorbot did not expose a selectable {target_month} option for requested period {target_date}.")
         break
+    if report_type == "monthly_sales" and (not year_confirmed or not month_confirmed):
+        raise RuntimeError(f"Monthly period selection incomplete for {target_date}: year_confirmed={year_confirmed}, month_confirmed={month_confirmed}.")
     return latest, replies
 
 
@@ -1197,8 +1207,16 @@ async def collect_one_report(client, entity, report_type, requested_period, loca
             has_yesterday_label = "venda de ontem" in low or "dia anterior" in low
             if not has_yesterday_label and confirmed_date != requested_period:
                 raise RuntimeError("Daily report lacks an explicit previous-day selection or matching date; refusing an ambiguous snapshot.")
-    if report_type == "monthly_sales" and "venda acumulada do mês" not in low:
-        raise RuntimeError("Monthly report semantic validation failed.")
+    if report_type == "monthly_sales":
+        if "venda acumulada do mês" not in low:
+            raise RuntimeError("Monthly report semantic validation failed.")
+        month_names_pt = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+        expected_month_name = month_names_pt[int(requested_period[5:7]) - 1]
+        if expected_month_name not in low:
+            raise RuntimeError(f"Monthly report title does not confirm requested month {requested_period}; refusing database write.")
+        year_tokens = re.findall(r"(?<!\\d)(20\\d{2})(?!\\d)", report_text)
+        if year_tokens and requested_period[:4] not in year_tokens:
+            raise RuntimeError(f"Monthly report year does not match requested period {requested_period}; refusing database write.")
     ticket_average_rows = (
         report_type == "ticket_average"
         and report_message_has_data(report_text)
