@@ -983,7 +983,10 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
         labels = [label.strip() for label in buttons(latest)]
         labels_low = [label.lower() for label in labels]
         year_options = [label for label in labels if "ano atual" in label.lower() or "ano anterior" in label.lower()]
-        if year_options or ("ano atual" in prompt and "ano anterior" in prompt):
+        asks_today_or_previous_year = (
+            "venda de hoje" in prompt and "dia anterior" in prompt
+        ) or ("ano atual" in prompt and "ano anterior" in prompt)
+        if year_options or asks_today_or_previous_year:
             desired = "Ano Atual" if target_year == current_year else "Ano Anterior"
             choice = next((label for label in labels if desired.lower() in label.lower()), desired)
             latest, more = await send_choice(client, entity, latest, choice, f"select target year for {report_type}")
@@ -991,6 +994,8 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
                 raise RuntimeError(f"Monitorbot did not respond to {desired} selection for {report_type}.")
             replies.extend(more)
             latest = await latest_incoming(client, entity) or more[-1]
+            # Bellabyte's year choice is a typed reply; its next generic keyboard prompt
+            # confirms the year step and asks for the month.
             year_confirmed = True
             continue
 
@@ -1007,11 +1012,14 @@ async def resolve_period_selectors(client, entity, latest, replies, requested_pe
 
         month_options = [label for label in labels if target_month in label.lower()]
         month_prompt = any(term in prompt for term in ("selecione o mês", "selecione a opção desejada", "selecione o periodo", "selecione o período", "mês desejado", "escolha o mês"))
+        typed_month_prompt = "selecione a opção desejada no teclado" in prompt
         has_group_scope = "todos" in labels_low and report_type in {"ticket_average", "products_by_group"}
-        if month_options and not has_group_scope and (month_prompt or labels):
+        can_type_month = report_type == "monthly_sales" and typed_month_prompt and year_confirmed
+        if (month_options or can_type_month) and not has_group_scope and (month_prompt or labels or can_type_month):
             if not year_confirmed:
                 raise RuntimeError(f"Year selector was not confirmed before selecting {target_month} for {report_type}.")
-            latest, more = await send_choice(client, entity, latest, month_options[0], f"select {target_month} for {report_type}")
+            month_choice = month_options[0] if month_options else target_month.capitalize()
+            latest, more = await send_choice(client, entity, latest, month_choice, f"select {target_month} for {report_type}")
             if not more:
                 raise RuntimeError(f"Monitorbot did not respond to {target_month} selection for {report_type}.")
             replies.extend(more)
