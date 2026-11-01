@@ -7,7 +7,15 @@ on:
   workflow_dispatch:
     inputs:
       monthly_report_period:
-        description: "Optional month for historical monthly sales, YYYY-MM (for example 2025-10)"
+        description: "Optional month for a single historical monthly sales capture, YYYY-MM"
+        required: false
+        type: string
+      monthly_backfill_start:
+        description: "First month in the reverse-chronological historical backfill, YYYY-MM"
+        required: false
+        type: string
+      monthly_backfill_end:
+        description: "Last month in the reverse-chronological historical backfill, YYYY-MM"
         required: false
         type: string
       report_mode:
@@ -24,6 +32,7 @@ on:
           - sales_by_group
           - products_by_group
           - all_reports
+          - monthly_backfill
         default: all_reports
   schedule:
     # GitHub cron is UTC. Run at 08:00, 11:00, 14:00, 17:00 and 20:00 in Rio. Pushes tagged [collect-report] also refresh data immediately.
@@ -83,6 +92,8 @@ jobs:
           DAILY_SALES_DAY: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode == 'daily_today' && 'today' || github.event_name == 'schedule' && github.event.schedule != '0 11 * * *' && 'today' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'today' || 'yesterday' }}
           REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.report_mode == 'daily_today' && 'daily_yesterday' || inputs.report_mode) || (contains(github.event.head_commit.message, '[collect-report:ticket_average]') && 'ticket_average' || contains(github.event.head_commit.message, '[collect-report:products_by_group]') && 'products_by_group' || contains(github.event.head_commit.message, '[collect-report:sales_by_group]') && 'sales_by_group' || contains(github.event.head_commit.message, '[collect-report:top_value]') && 'top_value' || contains(github.event.head_commit.message, '[collect-report:top_quantity]') && 'top_quantity' || contains(github.event.head_commit.message, '[collect-report:monthly_sales]') && 'monthly_accumulated' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'daily_yesterday' || contains(github.event.head_commit.message, '[collect-report:sale_day]') && 'daily_yesterday' || 'all_reports') }}
           MONTHLY_REPORT_PERIOD: ${{ inputs.monthly_report_period }}
+          MONTHLY_BACKFILL_START: ${{ inputs.monthly_backfill_start }}
+          MONTHLY_BACKFILL_END: ${{ inputs.monthly_backfill_end }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
