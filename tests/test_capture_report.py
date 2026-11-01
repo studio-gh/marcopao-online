@@ -20,6 +20,18 @@ report_content_hash = MODULE.report_content_hash
 find_report_payload = MODULE.find_report_payload
 report_title_match = MODULE.report_title_match
 is_report_menu_message = MODULE.is_report_menu_message
+class MonthlyBackfillRangeTests(unittest.TestCase):
+    def test_backfill_month_range_is_reverse_chronological(self):
+        start = MODULE.datetime.strptime("2025-08", "%Y-%m")
+        end = MODULE.datetime.strptime("2025-10", "%Y-%m")
+        months = []
+        cursor = end
+        while cursor >= start:
+            months.append(cursor.strftime("%Y-%m"))
+            cursor = (cursor.replace(day=1) - MODULE.timedelta(days=1)).replace(day=1)
+        self.assertEqual(months, ["2025-10", "2025-09", "2025-08"])
+
+
 class ReportTargetPeriodTests(unittest.TestCase):
     def test_monthly_report_target_period_can_be_selected_explicitly(self):
         from unittest.mock import patch
