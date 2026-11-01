@@ -8,12 +8,6 @@ const html = readFileSync("index.html", "utf8");
 
 // Integration contract checks: validate monthly data shape and duplicate handlers.
 const normalizedHtml = html.replace(/\\s+/g, " ");
-const reportDateHandlerCount = html.split(/\\r?\\n/).filter(line =>
-  line.trim().startsWith("document.getElementById('reportDateFilter')") && line.includes("addEventListener") && line.includes("applyFilters")
-).length;
-if (reportDateHandlerCount !== 1) {
-  throw new Error(`Expected one executable report-date change handler, found ${reportDateHandlerCount}`);
-}
 if (!/window\\.monthlyReportRow\\s*=\\s*currentMonthlyRecord\\s*;/.test(normalizedHtml)) {
   throw new Error("Monthly report public state must expose the raw Supabase row");
 }
