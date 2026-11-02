@@ -24,8 +24,9 @@ if (!html.includes(dailyDateFilter)) {
 }
 
 const dailyNormalizerStart = html.indexOf("window.setSupabaseDailyReports = function(rows){");
-const dailyNormalizerEnd = html.indexOf("\n };", dailyNormalizerStart);
+const dailyNormalizerEnd = html.indexOf("render();renderGroupBars();applyFilters();", dailyNormalizerStart);
 if (dailyNormalizerStart < 0 || dailyNormalizerEnd < 0) throw new Error("Daily report normalizer is missing");
+const dailyNormalizer = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
 const dailyNormalizer = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
 if (!dailyNormalizer.includes("row.status==='validated'")) throw new Error("Daily KPIs must only consume validated rows");
 if (!dailyNormalizer.includes("row.report_date||row.period_start")) throw new Error("Daily report date fallback is missing");
