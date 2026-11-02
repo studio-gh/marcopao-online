@@ -23,6 +23,15 @@ if (!html.includes(dailyDateFilter)) {
   throw new Error("Daily Supabase reports must use a valid YYYY-MM-DD date regex");
 }
 
+const dailyNormalizerStart = html.indexOf("window.setSupabaseDailyReports = function(rows){");
+const dailyNormalizerEnd = html.indexOf("\n };", dailyNormalizerStart);
+if (dailyNormalizerStart < 0 || dailyNormalizerEnd < 0) throw new Error("Daily report normalizer is missing");
+const dailyNormalizer = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
+if (!dailyNormalizer.includes("row.status==='validated'")) throw new Error("Daily KPIs must only consume validated rows");
+if (!dailyNormalizer.includes("row.report_date||row.period_start")) throw new Error("Daily report date fallback is missing");
+if (!dailyNormalizer.includes("Number.isFinite(row.metrics.total)")) throw new Error("Daily report totals must be finite numbers");
+if (!dailyNormalizer.includes("dailyReports=[...latestPerDay.values()]")) throw new Error("Daily latest-per-day deduplication is missing");
+
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 if (!scripts.length) throw new Error("No inline JavaScript found in index.html");
 
