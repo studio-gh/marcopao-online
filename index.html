@@ -866,14 +866,19 @@ window.setSupabaseReports = function(rows){
 
 
 window.setSupabaseDailyReports = function(rows){
- const validRows=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row==='object'&&row.status==='validated');
+  const currentDayKey=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const currentCutoff=new Date(currentDayKey+'T00:00:00-03:00');
+  currentCutoff.setDate(currentCutoff.getDate()-6);
+  const windowStart=currentCutoff.toISOString().slice(0,10);
+  const validRows=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row==='object'&&row.status==='validated');
+  // Keep the complete daily history for comparison; the seven-day view applies its own rolling window.
  const remote=validRows.map(row=>{
   const totals=row.totals&&typeof row.totals==='object'?row.totals:{};
   const date=row.report_date||row.period_start||'';
   return {date:String(date).slice(0,10),branch:row.branch_name_raw||'Filial não identificada',
    metrics:{total:totals.total==null?null:Number(totals.total),coupons:totals.cupons==null?null:Number(totals.cupons),ticket:totals.ticket_medio==null?null:Number(totals.ticket_medio)},
    cardDetails:totals.card_details||null,status:'validated',source:'supabase',importedAt:row.imported_at||''};
- }).filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isFinite(row.metrics.total));
+ }).filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isFinite(row.metrics.total)&&row.date<=currentDayKey);
  remote.sort((a,b)=>(a.importedAt||'').localeCompare(b.importedAt||''));
  const latestPerDay=new Map();
  for(const row of remote)latestPerDay.set(row.branch+'|'+row.date,row);
