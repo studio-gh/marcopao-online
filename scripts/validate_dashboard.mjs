@@ -18,6 +18,11 @@ if (!normalizedHtml.includes("showMonthlyReport(window.monthlyReportRow)")) {
   throw new Error("Monthly report view consumer is missing");
 }
 
+const dailyDateFilter = String.raw\`filter(row=>/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)\`;
+if (!html.includes(dailyDateFilter)) {
+  throw new Error("Daily Supabase reports must use a valid YYYY-MM-DD date regex");
+}
+
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 if (!scripts.length) throw new Error("No inline JavaScript found in index.html");
 
