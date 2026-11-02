@@ -18,11 +18,9 @@ if (!normalizedHtml.includes("showMonthlyReport(window.monthlyReportRow)")) {
   throw new Error("Monthly report view consumer is missing");
 }
 
-const dailyDateFilter = "filter(row=>/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/.test(row.date)";
+const dailyDateFilter = 'filter(row=>/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/.test(row.date)';
 if (!html.includes(dailyDateFilter)) {
-  throw new Error("Daily Supabase reports must use a valid YYYY-MM-DD date regex");
-}
-  throw new Error("Daily Supabase reports must use a valid YYYY-MM-DD date regex");
+  throw new Error('Daily Supabase reports must validate YYYY-MM-DD dates');
 }
 
 const dailyNormalizerStart = html.indexOf("window.setSupabaseDailyReports = function(rows){");
