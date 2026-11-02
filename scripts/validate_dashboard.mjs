@@ -59,4 +59,8 @@ const insightsResult = spawnSync(process.execPath, ["--check", "report-insights.
 if (insightsResult.status !== 0) {
   throw new Error(`Syntax error in report-insights.js:\n${insightsResult.stderr || insightsResult.stdout}`);
 }
+const dailyNormalizerBody = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
+if (!dailyNormalizerBody.includes('row.date>=windowStart&&row.date<=currentDayKey')) throw new Error('Seven-day window must filter daily reports to the rolling date range');
+if (!dailyNormalizerBody.includes('window.marcopaoDailyWindow={start:windowStart,end:currentDayKey,rows:sevenDayRows,total:sevenDayTotal,coupons:sevenDayCoupons,daysWithReport:new Set(sevenDayRows.map(row=>row.date)).size}')) throw new Error('Seven-day aggregate contract is missing');
+
 console.log(`Dashboard JS syntax OK: ${scripts.length} inline script(s) and report-insights.js.`);
