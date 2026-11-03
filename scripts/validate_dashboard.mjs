@@ -61,8 +61,7 @@ for (const [index, match] of scripts.entries()) {
       writeFileSync(path, source, "utf8");
       const result = spawnSync(process.execPath, ["--check", path], { encoding: "utf8" });
       if (result.status !== 0) {
-        throw new Error(`Syntax error in ${filename}:
-${result.stderr || result.stdout}`);
+        throw new Error(`Syntax error in ${filename}:\n${result.stderr || result.stdout}`);
       }
     } finally {
       rmSync(directory, { recursive: true, force: true });
@@ -73,14 +72,12 @@ ${result.stderr || result.stdout}`);
 }
 const insightsResult = spawnSync(process.execPath, ["--check", "report-insights.js"], { encoding: "utf8" });
 if (insightsResult.status !== 0) {
-  throw new Error(`Syntax error in report-insights.js:
-${insightsResult.stderr || insightsResult.stdout}`);
+  throw new Error(`Syntax error in report-insights.js:\n${insightsResult.stderr || insightsResult.stdout}`);
 }
 
 const visualResult = spawnSync(process.execPath, ["--check", "report-visualizations.js"], { encoding: "utf8" });
 if (visualResult.status !== 0) {
-  throw new Error(`Syntax error in report-visualizations.js:
-${visualResult.stderr || visualResult.stdout}`);
+  throw new Error(`Syntax error in report-visualizations.js:\n${visualResult.stderr || visualResult.stdout}`);
 }
 if (!html.includes("window.marcopaoMonthlyHistory=monthlyHistory.map")) throw new Error("Monthly chart must receive validated monthly history only");
 if (!html.includes("window.marcopaoDailyHistory=dailyReports.map")) throw new Error("Daily chart must receive normalized daily reports");
