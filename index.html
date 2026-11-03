@@ -446,7 +446,8 @@ function parseMonthlyMetrics(text){
   ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
   cancelCoupons:intMatch(/Qtd de Cupons cancelados\s*:?\s*([\d.]+)/i),
   cancelItems:moneyMatch(/Vlr Total Item Canc\.\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
-  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?
+/)[0].trim()
  };
 }
 function showMonthlySnapshot(m){
@@ -523,7 +524,8 @@ function parseReport(text,date){
  d.ticket=parseMoney(text,[/Ticket Médio\s*:\s*R?\$?\s*([\d.]+,\d{2})/i],d.coupons?d.total/d.coupons:d.ticket);
  d.cancelCoupons=parseCount(text,[/Qtd de Cupons cancelados\s*:\s*([\d.]+)/i],d.cancelCoupons);
  d.cancelItems=parseMoney(text,[/Vlr Total Item Canc\.\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cancelItems);
- const branch=text.match(/Filial\s*:\s*(.+)/i);if(branch)d.branch=branch[1].split(/\r?\n/)[0].trim();
+ const branch=text.match(/Filial\s*:\s*(.+)/i);if(branch)d.branch=branch[1].split(/\r?
+/)[0].trim();
  d.date=date.trim();d.imported=new Date().toLocaleDateString('pt-BR');
  return d;
 }
@@ -546,11 +548,13 @@ function parseDayMetrics(text){
   tef:moneyMatch(/TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
   coupons:intMatch(/Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)/i),
   ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
-  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?
+/)[0].trim()
  };
 }
 function parseCardBreakdown(raw, label){
- const lines=String(raw||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+ const lines=String(raw||'').split(/\r?
+/).map(line=>line.trim()).filter(Boolean);
  const start=lines.findIndex(line=>line.toLocaleLowerCase('pt-BR')===label.toLocaleLowerCase('pt-BR'));
  if(start<0)return {rows:[],total:null};
  const rows=[]; let total=null;
@@ -747,9 +751,11 @@ function applyFilters(){
   const raw=document.getElementById('otherReportRaw');
   raw.style.display=hasText?'block':'none';
   if(hasText){
-   const lines=report.text.split(/\r?\n/);
+   const lines=report.text.split(/\r?
+/);
    const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
-   raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
+   raw.textContent=filtered.length?filtered.join('
+'):'Nenhuma linha corresponde à busca.';
   }
   setText('filterStatus',hasText?reportNames[selectedType]+' · '+(report.status==='validated'?'validado':'pendente de conferência')+' · '+(report.entryCount||0)+' linhas estruturadas. Busca aplicada aos campos importados.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
   return;
@@ -781,7 +787,8 @@ document.getElementById('applyBtn').onclick=()=>{
    importedReports[selectedType]={text,date:iso,branch:metrics.branch||base.branch,status:'needs_review'};
    toast('Texto recebido apenas para conferência. Não foi incluído nos indicadores oficiais; a validação deve ocorrer antes de publicar.');
  }else{
-   importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\\n/)[0]?.trim()||''};
+   importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\
+/)[0]?.trim()||''};
  }
  modal.classList.remove('open');applyFilters();if(selectedType!=='sale-day')toast('Texto recebido para conferência, sem alterar os indicadores oficiais.');
 };
@@ -819,10 +826,15 @@ window.setSupabaseReports = function(rows){
  if(currentRow){
   const mt=currentRow.row&&currentRow.row.totals&&typeof currentRow.row.totals==='object'?currentRow.row.totals:{};
   setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Período '+currentRow.row.period_start+' a '+currentRow.row.period_end+'.');
-  const monthlyWarnings=Array.isArray(mt.validation_warnings)?mt.validation_warnings:[];\n  setText('monthlyReviewState',monthlyWarnings.length?'Validado com ressalvas':'Validado · '+formatReportDate(currentRow.row.imported_at));\n  const monthlyFoot=document.getElementById('monthlyOverviewFoot');\n  if(monthlyFoot)monthlyFoot.textContent='Fonte: relatório mensal do Monitorbot · período '+currentRow.row.period_start+' a '+currentRow.row.period_end+' · captura '+formatReportDate(currentRow.row.imported_at)+'. '+(monthlyWarnings.length?'Ressalvas: '+monthlyWarnings.join(' '):'Sem ressalvas registradas na validação.');
+  const monthlyWarnings=Array.isArray(mt.validation_warnings)?mt.validation_warnings:[];
+  setText('monthlyReviewState',monthlyWarnings.length?'Validado com ressalvas':'Validado · '+formatReportDate(currentRow.row.imported_at));
+  const monthlyFoot=document.getElementById('monthlyOverviewFoot');
+  if(monthlyFoot)monthlyFoot.textContent='Fonte: relatório mensal do Monitorbot · período '+currentRow.row.period_start+' a '+currentRow.row.period_end+' · captura '+formatReportDate(currentRow.row.imported_at)+'. '+(monthlyWarnings.length?'Ressalvas: '+monthlyWarnings.join(' '):'Sem ressalvas registradas na validação.');
  }else{
   setText('monthlyOverviewCaption','Aguardando importação do relatório acumulado do mês atual.');
-  setText('monthlyReviewState','Sem relatório validado');\n  const monthlyFoot=document.getElementById('monthlyOverviewFoot');\n  if(monthlyFoot)monthlyFoot.textContent='Nenhum relatório mensal validado para o mês atual. Não exibimos valores de meses anteriores como se fossem vendas deste mês.';
+  setText('monthlyReviewState','Sem relatório validado');
+  const monthlyFoot=document.getElementById('monthlyOverviewFoot');
+  if(monthlyFoot)monthlyFoot.textContent='Nenhum relatório mensal validado para o mês atual. Não exibimos valores de meses anteriores como se fossem vendas deste mês.';
  }
  const statusEl=document.getElementById('monthlyYearStatus');
  const listEl=document.getElementById('monthlyYearList');
