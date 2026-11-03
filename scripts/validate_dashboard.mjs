@@ -21,11 +21,11 @@ if (!normalizedHtml.includes("showMonthlyReport(window.monthlyReportRow)")) {
 if (!normalizedHtml.includes("FATURAMENTO DOS MESES CAPTURADOS")) {
   throw new Error("Annual overview must not imply a complete YTD when only partial months are captured");
 }
-if (!normalizedHtml.includes("Períodos considerados:")) {
-  throw new Error("Captured monthly revenue must disclose the exact periods included");
+if (!normalizedHtml.includes('id="ytdPeriodList"') || !normalizedHtml.includes("Ver períodos considerados")) {
+  throw new Error("Captured monthly periods must be available in a compact expandable list");
 }
-if (!normalizedHtml.includes("O mês corrente considera o acumulado até a data/hora da captura.")) {
-  throw new Error("Open-month revenue must disclose its actual capture cutoff");
+if (!normalizedHtml.includes("Mês corrente atualizado até")) {
+  throw new Error("Open-month revenue must disclose its actual capture cutoff without a long inline paragraph");
 }
 if (!normalizedHtml.includes("Nenhum relatório mensal foi validado em")) {
   throw new Error("Empty annual history must not display a misleading zero or partial YTD total");
@@ -40,7 +40,8 @@ const dailyNormalizerStart = html.indexOf("window.setSupabaseDailyReports = func
 const dailyNormalizerEnd = html.indexOf("render();renderGroupBars();applyFilters();", dailyNormalizerStart);
 if (dailyNormalizerStart < 0 || dailyNormalizerEnd < 0) throw new Error("Daily report normalizer is missing");
 const dailyNormalizer = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
-if (!dailyNormalizer.includes("row.status==='validated'")) throw new Error("Daily KPIs must only consume validated rows");
+if (!dailyNormalizer.includes("['validated','needs_review'].includes(row.status)")) throw new Error("Daily KPIs must only consume approved daily rows and surface review warnings");
+if (!dailyNormalizer.includes("row.methods.length===0&&row.warnings.length>0")) throw new Error("Empty incomplete daily captures must not be counted as zero-sales days");
 if (!dailyNormalizer.includes("row.report_date||row.period_start")) throw new Error("Daily report date fallback is missing");
 if (!dailyNormalizer.includes("Number.isFinite(row.metrics.total)")) throw new Error("Daily report totals must be finite numbers");
 if (!dailyNormalizer.includes("dailyReports=[...latestPerDay.values()]")) throw new Error("Daily latest-per-day deduplication is missing");
@@ -76,4 +77,7 @@ const dailyNormalizerBody = html.slice(dailyNormalizerStart, dailyNormalizerEnd)
 if (!dailyNormalizerBody.includes('row.date>=windowStart&&row.date<=currentDayKey')) throw new Error('Seven-day window must filter daily reports to the rolling date range');
 if (!dailyNormalizerBody.includes('window.marcopaoDailyWindow={start:windowStart,end:currentDayKey,rows:sevenDayRows,total:sevenDayTotal,coupons:sevenDayCoupons,daysWithReport:new Set(sevenDayRows.map(row=>row.date)).size}')) throw new Error('Seven-day aggregate contract is missing');
 
+if (!html.includes(".from('dashboard_daily_report_summaries')")) throw new Error("Daily dashboard must read from the safe daily Supabase view");
+if (!html.includes("window.setSupabaseDailyReports(dailyRows)")) throw new Error("Daily dashboard must receive rows from the dedicated daily read model");
+if (!html.includes("Mês corrente atualizado até")) throw new Error("Monthly period summary must remain concise");
 console.log(`Dashboard JS syntax OK: ${scripts.length} inline script(s) and report-insights.js.`);
