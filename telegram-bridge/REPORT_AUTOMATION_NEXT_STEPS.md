@@ -63,3 +63,5 @@ Backfill batch launch: `[collect-report:monthly_backfill:2026-07:2026-09]`.
 Backfill retry after workflow trigger-parser correction: `[collect-report:monthly_backfill:2026-07:2026-09]`.
 
 Backfill batch launch after workflow-output correction: `[collect-report:monthly_backfill:2026-07:2026-09]`.
+
+Backfill batch launch: `[collect-report:monthly_backfill:2026-04:2026-06]`.
