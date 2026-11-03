@@ -32,7 +32,7 @@ if (!normalizedHtml.includes("Nenhum relatório mensal foi validado em")) {
   throw new Error("Empty annual history must not display a misleading zero or partial YTD total");
 }
 
-const dailyDateFilter = 'filter(row=>/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)';
+const dailyDateFilter = '.filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)';
 if (!html.includes(dailyDateFilter)) {
   throw new Error('Daily Supabase reports must validate YYYY-MM-DD dates');
 }
@@ -116,5 +116,5 @@ if (!normalizedHtml.includes("isFullMonth(previous)")) throw new Error("Year-ove
 if (!html.includes(String.raw`.filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)`)) throw new Error("Daily date filter must recognize valid ISO dates");
 if (!html.includes("endDate.setUTCDate(endDate.getUTCDate()-1)")) throw new Error("Seven-day daily summary must end yesterday, not include the still-open current day");
 if (!html.includes("}else if(m===currentMonth){")) throw new Error("Current YTD month must never be compared with a full prior-year month");
-if (!html.includes(".year-month-list{grid-template-columns:repeat(2,minmax(0,1fr))}")) throw new Error("YTD month list must use shrinkable grid columns to prevent horizontal overflow");
-if (!html.includes(".seven-day-table{width:100%;min-width:0;table-layout:fixed}")) throw new Error("Seven-day table must fit its container without forcing page overflow");
+if (!html.includes(".year-month-list{grid-template-columns:repeat(2,minmax(0,1fr));")) throw new Error("YTD month list must use shrinkable grid columns to prevent horizontal overflow");
+if (!html.includes(".seven-day-table{width:100%;min-width:0;table-layout:fixed;")) throw new Error("Seven-day table must fit its container without forcing page overflow");
