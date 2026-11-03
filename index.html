@@ -240,22 +240,22 @@
   </section>
   <section class="section-head" style="margin-top:30px"><div><h2>Ano em perspectiva</h2><p>Faturamento dos meses com relatório validado. Períodos sem captura permanecem pendentes e não são tratados como zero.</p></div><span class="tag">HISTÓRICO CAPTURADO</span></section>
   <section class="panel year-overview" id="yearOverview">
-    <div class="year-ytd"><div class="eyebrow" style="color:var(--muted);opacity:1">FATURAMENTO DOS MESES CAPTURADOS</div><div class="showcase-number" id="ytdTotal">Aguardando relatórios mensais</div><div class="showcase-caption" id="ytdCaption">O total será exibido com a lista exata dos períodos considerados.</div><details class="period-details" id="ytdPeriodDetails"><summary>Ver períodos considerados</summary><ul id="ytdPeriodList"></ul></details></div>
-    <div class="year-months"><div class="monthly-year-heading">Mês a mês · ano atual</div><div id="yearMonthlyStatus" class="monthly-year-status">Aguardando relatórios mensais.</div><div id="yearMonthlyList" class="year-month-list"></div></div>
+    <div class="year-ytd"><div class="eyebrow" style="color:var(--muted);opacity:1">YTD · FATURAMENTO DOS MESES CAPTURADOS</div><div class="showcase-number" id="ytdTotal">Aguardando relatórios mensais</div><div class="showcase-caption" id="ytdCaption">O total será exibido com a lista exata dos períodos considerados.</div><details class="period-details" id="ytdPeriodDetails"><summary>Ver períodos considerados</summary><ul id="ytdPeriodList"></ul></details></div>
+    <div class="year-months"><div class="monthly-year-heading">YTD · mês a mês · ano atual</div><div id="yearMonthlyStatus" class="monthly-year-status">Aguardando relatórios mensais.</div><div id="yearMonthlyList" class="year-month-list"></div></div>
   </section>
   <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Resumo executivo com dados importados e pendências claramente sinalizadas.</p></div><span class="tag">VISÃO DE GESTÃO</span></section>
   <section class="showcase-grid" id="businessOverview">
     <article class="showcase panel" id="monthlyOverviewCard">
       <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DO MÊS</div><h3>Venda do mês</h3></div><span class="showcase-icon">↗</span></div>
-      <div class="showcase-number" id="monthlyOverviewTotal">R$ 207.977,18</div>
-      <div class="showcase-caption" id="monthlyOverviewCaption">12.584 cupons · Ticket médio R$ 16,53 · relatório manual importado em 27/10 às 14:01.</div>
+      <div class="showcase-number" id="monthlyOverviewTotal">Aguardando sincronização</div>
+      <div class="showcase-caption" id="monthlyOverviewCaption">O acumulado aparecerá após a leitura do relatório mensal mais recente no Supabase.</div>
       <div class="monthly-year-compare" id="monthlyYearCompare">
         <div class="monthly-year-heading">Comparativo com anos anteriores</div>
         <div class="monthly-year-status" id="monthlyYearStatus">Aguardando relatórios históricos.</div>
         <div class="monthly-year-list" id="monthlyYearList"></div>
       </div>
       <div class="progress-label"><span>Conferência</span><span id="monthlyReviewState">Pendente de revisão</span></div>
-      <div class="showcase-foot">Fonte: relatório 2 recebido do Monitorbot. Total informativo; o relatório ainda requer conferência de cancelamentos.</div>
+      <div class="showcase-foot" id="monthlyOverviewFoot">Aguardando identificação do período, horário de captura e ressalvas do relatório mensal.</div>
     </article>
     <article class="showcase panel" id="productOverviewCard">
       <div class="showcase-top"><div><div class="eyebrow" style="color:var(--muted);opacity:1">DESTAQUE DE PRODUTO</div><h3>Quem puxa o faturamento?</h3></div><span class="showcase-icon">★</span></div>
@@ -819,10 +819,10 @@ window.setSupabaseReports = function(rows){
  if(currentRow){
   const mt=currentRow.row&&currentRow.row.totals&&typeof currentRow.row.totals==='object'?currentRow.row.totals:{};
   setText('monthlyOverviewCaption',(mt.cupons!=null?num(Number(mt.cupons))+' cupons':'Cupons não informados')+' · Ticket médio '+(mt.ticket_medio!=null?money(Number(mt.ticket_medio)):'não informado')+' · Período '+currentRow.row.period_start+' a '+currentRow.row.period_end+'.');
-  setText('monthlyReviewState','Validado · '+formatReportDate(currentRow.row.imported_at));
+  const monthlyWarnings=Array.isArray(mt.validation_warnings)?mt.validation_warnings:[];\n  setText('monthlyReviewState',monthlyWarnings.length?'Validado com ressalvas':'Validado · '+formatReportDate(currentRow.row.imported_at));\n  const monthlyFoot=document.getElementById('monthlyOverviewFoot');\n  if(monthlyFoot)monthlyFoot.textContent='Fonte: relatório mensal do Monitorbot · período '+currentRow.row.period_start+' a '+currentRow.row.period_end+' · captura '+formatReportDate(currentRow.row.imported_at)+'. '+(monthlyWarnings.length?'Ressalvas: '+monthlyWarnings.join(' '):'Sem ressalvas registradas na validação.');
  }else{
   setText('monthlyOverviewCaption','Aguardando importação do relatório acumulado do mês atual.');
-  setText('monthlyReviewState','Sem relatório validado');
+  setText('monthlyReviewState','Sem relatório validado');\n  const monthlyFoot=document.getElementById('monthlyOverviewFoot');\n  if(monthlyFoot)monthlyFoot.textContent='Nenhum relatório mensal validado para o mês atual. Não exibimos valores de meses anteriores como se fossem vendas deste mês.';
  }
  const statusEl=document.getElementById('monthlyYearStatus');
  const listEl=document.getElementById('monthlyYearList');
