@@ -61,7 +61,8 @@ for (const [index, match] of scripts.entries()) {
       writeFileSync(path, source, "utf8");
       const result = spawnSync(process.execPath, ["--check", path], { encoding: "utf8" });
       if (result.status !== 0) {
-        throw new Error(`Syntax error in ${filename}:\n${result.stderr || result.stdout}`);
+        throw new Error(`Syntax error in ${filename}:
+${result.stderr || result.stdout}`);
       }
     } finally {
       rmSync(directory, { recursive: true, force: true });
@@ -72,12 +73,14 @@ for (const [index, match] of scripts.entries()) {
 }
 const insightsResult = spawnSync(process.execPath, ["--check", "report-insights.js"], { encoding: "utf8" });
 if (insightsResult.status !== 0) {
-  throw new Error(`Syntax error in report-insights.js:\n${insightsResult.stderr || insightsResult.stdout}`);
+  throw new Error(`Syntax error in report-insights.js:
+${insightsResult.stderr || insightsResult.stdout}`);
 }
 
 const visualResult = spawnSync(process.execPath, ["--check", "report-visualizations.js"], { encoding: "utf8" });
 if (visualResult.status !== 0) {
-  throw new Error(`Syntax error in report-visualizations.js:\n${visualResult.stderr || visualResult.stdout}`);
+  throw new Error(`Syntax error in report-visualizations.js:
+${visualResult.stderr || visualResult.stdout}`);
 }
 if (!html.includes("window.marcopaoMonthlyHistory=monthlyHistory.map")) throw new Error("Monthly chart must receive validated monthly history only");
 if (!html.includes("window.marcopaoDailyHistory=dailyReports.map")) throw new Error("Daily chart must receive normalized daily reports");
@@ -93,4 +96,10 @@ if (!html.includes(".from('dashboard_daily_report_summaries')")) throw new Error
 if (!html.includes("window.setSupabaseDailyReports(dailyRows)")) throw new Error("Daily dashboard must receive rows from the dedicated daily read model");
 if (!html.includes("Mês corrente atualizado até")) throw new Error("Monthly period summary must remain concise");
 console.log(`Dashboard JS syntax OK: ${scripts.length} inline script(s) and report-insights.js.`);
-\n// Prevent stale manual October fallback from masquerading as the current month.\nif (normalizedHtml.includes('id="monthlyOverviewTotal">R$ 207.977,18')) throw new Error("Stale October manual total must never be the static current-month fallback");\nif (!normalizedHtml.includes('id="monthlyOverviewTotal">Aguardando sincronização')) throw new Error("Current-month card must wait for the latest Supabase sync");\nif (!normalizedHtml.includes('id="monthlyOverviewFoot"')) throw new Error("Current-month card must disclose source period, capture time and validation caveats");\nif (!normalizedHtml.includes('YTD · FATURAMENTO DOS MESES CAPTURADOS')) throw new Error("YTD must remain explicitly visible in the annual overview");\nif (!normalizedHtml.includes('YTD · mês a mês · ano atual')) throw new Error("Month-by-month YTD list must remain visible");\n
+
+// Prevent stale manual October fallback from masquerading as the current month.
+if (normalizedHtml.includes('id="monthlyOverviewTotal">R$ 207.977,18')) throw new Error("Stale October manual total must never be the static current-month fallback");
+if (!normalizedHtml.includes('id="monthlyOverviewTotal">Aguardando sincronização')) throw new Error("Current-month card must wait for the latest Supabase sync");
+if (!normalizedHtml.includes('id="monthlyOverviewFoot"')) throw new Error("Current-month card must disclose source period, capture time and validation caveats");
+if (!normalizedHtml.includes('YTD · FATURAMENTO DOS MESES CAPTURADOS')) throw new Error("YTD must remain explicitly visible in the annual overview");
+if (!normalizedHtml.includes('YTD · mês a mês · ano atual')) throw new Error("Month-by-month YTD list must remain visible");
