@@ -446,8 +446,7 @@ function parseMonthlyMetrics(text){
   ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
   cancelCoupons:intMatch(/Qtd de Cupons cancelados\s*:?\s*([\d.]+)/i),
   cancelItems:moneyMatch(/Vlr Total Item Canc\.\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
-  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?
-/)[0].trim()
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
  };
 }
 function showMonthlySnapshot(m){
@@ -524,8 +523,7 @@ function parseReport(text,date){
  d.ticket=parseMoney(text,[/Ticket Médio\s*:\s*R?\$?\s*([\d.]+,\d{2})/i],d.coupons?d.total/d.coupons:d.ticket);
  d.cancelCoupons=parseCount(text,[/Qtd de Cupons cancelados\s*:\s*([\d.]+)/i],d.cancelCoupons);
  d.cancelItems=parseMoney(text,[/Vlr Total Item Canc\.\s*:\s*R\$\s*([\d.]+,\d{2})/i],d.cancelItems);
- const branch=text.match(/Filial\s*:\s*(.+)/i);if(branch)d.branch=branch[1].split(/\r?
-/)[0].trim();
+ const branch=text.match(/Filial\s*:\s*(.+)/i);if(branch)d.branch=branch[1].split(/\r?\n/)[0].trim();
  d.date=date.trim();d.imported=new Date().toLocaleDateString('pt-BR');
  return d;
 }
@@ -548,13 +546,11 @@ function parseDayMetrics(text){
   tef:moneyMatch(/TEF\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
   coupons:intMatch(/Quantidades?\s+de\s+Cupons\s*:?\s*([\d.]+)/i),
   ticket:moneyMatch(/Ticket Médio\s*:?\s*R?\$?\s*([\d.]+,\d{2})/i),
-  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?
-/)[0].trim()
+  branch:((text.match(/Filial\s*:\s*(.+)/i)||[])[1]||"").split(/\r?\n/)[0].trim()
  };
 }
 function parseCardBreakdown(raw, label){
- const lines=String(raw||'').split(/\r?
-/).map(line=>line.trim()).filter(Boolean);
+ const lines=String(raw||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
  const start=lines.findIndex(line=>line.toLocaleLowerCase('pt-BR')===label.toLocaleLowerCase('pt-BR'));
  if(start<0)return {rows:[],total:null};
  const rows=[]; let total=null;
@@ -751,11 +747,9 @@ function applyFilters(){
   const raw=document.getElementById('otherReportRaw');
   raw.style.display=hasText?'block':'none';
   if(hasText){
-   const lines=report.text.split(/\r?
-/);
+   const lines=report.text.split(/\r?\n/);
    const filtered=lines.filter(line=>!query||line.toLocaleLowerCase('pt-BR').includes(query));
-   raw.textContent=filtered.length?filtered.join('
-'):'Nenhuma linha corresponde à busca.';
+   raw.textContent=filtered.length?filtered.join('\n'):'Nenhuma linha corresponde à busca.';
   }
   setText('filterStatus',hasText?reportNames[selectedType]+' · '+(report.status==='validated'?'validado':'pendente de conferência')+' · '+(report.entryCount||0)+' linhas estruturadas. Busca aplicada aos campos importados.':reportNames[selectedType]+' ainda não importado. Nenhum dado de exemplo é exibido.');
   return;
@@ -787,8 +781,7 @@ document.getElementById('applyBtn').onclick=()=>{
    importedReports[selectedType]={text,date:iso,branch:metrics.branch||base.branch,status:'needs_review'};
    toast('Texto recebido apenas para conferência. Não foi incluído nos indicadores oficiais; a validação deve ocorrer antes de publicar.');
  }else{
-   importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\
-/)[0]?.trim()||''};
+   importedReports[selectedType]={text,date,branch:(text.match(/Filial\\s*:\\s*(.+)/i)||[])[1]?.split(/\\r?\\n/)[0]?.trim()||''};
  }
  modal.classList.remove('open');applyFilters();if(selectedType!=='sale-day')toast('Texto recebido para conferência, sem alterar os indicadores oficiais.');
 };
