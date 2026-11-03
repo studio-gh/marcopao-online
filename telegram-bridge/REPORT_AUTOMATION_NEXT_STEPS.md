@@ -71,3 +71,5 @@ Backfill batch launch: `[collect-report:monthly_backfill:2026-01:2026-03]`.
 Backfill batch launch: `[collect-report:monthly_backfill:2025-10:2025-12]`.
 
 Backfill batch launch: `[collect-report:monthly_backfill:2025-07:2025-09]`.
+
+Backfill batch launch: `[collect-report:monthly_backfill:2025-04:2025-06]`.
