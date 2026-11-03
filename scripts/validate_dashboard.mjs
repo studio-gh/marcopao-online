@@ -84,6 +84,7 @@ if (!html.includes("window.marcopaoDailyHistory=dailyReports.map")) throw new Er
 if (!html.includes("marcopao:data-updated")) throw new Error("Visualizations must refresh after Supabase synchronization");
 if (!html.includes("./report-visualizations.js")) throw new Error("Visual analytics script must be loaded by the dashboard");
 if (!visualizations.includes("Dias e meses sem relatório permanecem como lacunas")) throw new Error("Visual analytics must disclose missing periods rather than treating them as zero");
+if (!visualizations.includes("daily.daysWithReport?brl(daily.total):'—'")) throw new Error("Missing daily coverage must not be displayed as zero revenue");
 const dailyNormalizerBody = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
 if (!dailyNormalizerBody.includes('row.date>=windowStart&&row.date<=currentDayKey')) throw new Error('Seven-day window must filter daily reports to the rolling date range');
 if (!dailyNormalizerBody.includes('window.marcopaoDailyWindow={start:windowStart,end:currentDayKey,rows:sevenDayRows,total:sevenDayTotal,coupons:sevenDayCoupons,daysWithReport:new Set(sevenDayRows.map(row=>row.date)).size}')) throw new Error('Seven-day aggregate contract is missing');
