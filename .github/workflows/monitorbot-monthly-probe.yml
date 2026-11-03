@@ -84,6 +84,7 @@ jobs:
       - name: Install Telethon
         run: python -m pip install --disable-pip-version-check "Telethon==1.45.0"
       - name: Resolve tagged historical month or backfill range
+        id: resolve_period
         shell: bash
         env:
           INPUT_MONTHLY_REPORT_PERIOD: ${{ inputs.monthly_report_period }}
@@ -102,14 +103,15 @@ jobs:
               backfill = re.search(r"\[collect-report:monthly_backfill:(20\d{2}-(?:0[1-9]|1[0-2])):(20\d{2}-(?:0[1-9]|1[0-2]))\]", message)
               if backfill:
                   start, end = backfill.groups()
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              if period:
+          if period:
+              with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
                   env.write(f"MONTHLY_REPORT_PERIOD={period}\n")
-                  print(f"Monthly sales target set to {period}")
-              if start and end:
-                  env.write(f"MONTHLY_BACKFILL_START={start}\n")
-                  env.write(f"MONTHLY_BACKFILL_END={end}\n")
-                  print(f"Monthly historical backfill set to {start} through {end}")
+              print(f"Monthly sales target set to {period}")
+          if start and end:
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write(f"backfill_start={start}\n")
+                  output.write(f"backfill_end={end}\n")
+              print(f"Monthly historical backfill set to {start} through {end}")
           if not period and not (start and end):
               print("No explicit monthly target supplied; collector default applies.")
           PY
@@ -121,8 +123,8 @@ jobs:
           BELLABYTE_PASSWORD: ${{ secrets.BELLABYTE_PASSWORD }}
           DAILY_SALES_DAY: ${{ github.event_name == 'workflow_dispatch' && inputs.report_mode == 'daily_today' && 'today' || github.event_name == 'schedule' && github.event.schedule != '0 11 * * *' && 'today' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'today' || 'yesterday' }}
           REPORT_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.report_mode == 'daily_today' && 'daily_yesterday' || inputs.report_mode) || (contains(github.event.head_commit.message, '[collect-report:monthly_backfill:') && 'monthly_backfill' || contains(github.event.head_commit.message, '[collect-report:ticket_average]') && 'ticket_average' || contains(github.event.head_commit.message, '[collect-report:products_by_group]') && 'products_by_group' || contains(github.event.head_commit.message, '[collect-report:sales_by_group]') && 'sales_by_group' || contains(github.event.head_commit.message, '[collect-report:top_value]') && 'top_value' || contains(github.event.head_commit.message, '[collect-report:top_quantity]') && 'top_quantity' || contains(github.event.head_commit.message, '[collect-report:monthly_sales:') && 'monthly_accumulated' || contains(github.event.head_commit.message, '[collect-report:monthly_sales]') && 'monthly_accumulated' || contains(github.event.head_commit.message, '[collect-report:sale_day:today]') && 'daily_yesterday' || contains(github.event.head_commit.message, '[collect-report:sale_day]') && 'daily_yesterday' || 'all_reports') }}
-          MONTHLY_BACKFILL_START: ${{ inputs.monthly_backfill_start }}
-          MONTHLY_BACKFILL_END: ${{ inputs.monthly_backfill_end }}
+          MONTHLY_BACKFILL_START: ${{ inputs.monthly_backfill_start || steps.resolve_period.outputs.backfill_start }}
+          MONTHLY_BACKFILL_END: ${{ inputs.monthly_backfill_end || steps.resolve_period.outputs.backfill_end }}
           SUPABASE_URL: "https://aeikehzlsdyklcvgjouz.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python telegram-bridge/capture_report.py
