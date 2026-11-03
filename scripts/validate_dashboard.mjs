@@ -18,6 +18,19 @@ if (!normalizedHtml.includes("showMonthlyReport(window.monthlyReportRow)")) {
   throw new Error("Monthly report view consumer is missing");
 }
 
+if (!normalizedHtml.includes("FATURAMENTO DOS MESES CAPTURADOS")) {
+  throw new Error("Annual overview must not imply a complete YTD when only partial months are captured");
+}
+if (!normalizedHtml.includes("Períodos considerados:")) {
+  throw new Error("Captured monthly revenue must disclose the exact periods included");
+}
+if (!normalizedHtml.includes("O mês corrente considera o acumulado até a data/hora da captura.")) {
+  throw new Error("Open-month revenue must disclose its actual capture cutoff");
+}
+if (!normalizedHtml.includes("Nenhum relatório mensal foi validado em")) {
+  throw new Error("Empty annual history must not display a misleading zero or partial YTD total");
+}
+
 const dailyDateFilter = 'filter(row=>/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/.test(row.date)';
 if (!html.includes(dailyDateFilter)) {
   throw new Error('Daily Supabase reports must validate YYYY-MM-DD dates');
