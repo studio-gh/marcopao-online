@@ -35,29 +35,35 @@ function dailyChart(){
  insight.innerHTML=best?'<strong>'+dateLabel(best.date)+' foi o melhor dia</strong><span>'+brl(best.row.metrics.total)+' em vendas. Média dos dias com relatório: '+brl(avg)+'. '+(missing?missing+' dia(s) sem captura. ':'')+(review?review+' captura(s) com ressalvas para conferência.':'Capturas disponíveis sem ressalvas registradas.')+'</span>':'<strong>Sem série diária disponível</strong><span>Não há valores suficientes para montar a tendência.</span>';
 }
 function monthlyChart(){
- const host=document.getElementById('monthlyVisualChart'),insight=document.getElementById('monthlyVisualInsight'),caption=document.getElementById('monthlyVisualCaption');
- const rows=Array.isArray(window.marcopaoMonthlyHistory)?window.marcopaoMonthlyHistory:[];
- if(!rows.length){host.innerHTML='<div class="visual-empty">Aguardando relatórios mensais validados.</div>';insight.textContent='O histórico será desenhado conforme os meses forem capturados.';caption.textContent='Nenhum mês validado disponível';return;}
- const map=new Map(rows.map(r=>[r.month,r.total]));
- const first=rows[0].month,last=rows[rows.length-1].month;
- const [fy,fm]=first.split('-').map(Number),[ly,lm]=last.split('-').map(Number),months=[];
- let y=fy,m=fm;
- while(y<ly||(y===ly&&m<=lm)){const key=y+'-'+String(m).padStart(2,'0');months.push({month:key,total:map.has(key)?map.get(key):null});m++;if(m===13){m=1;y++;}}
- const W=680,H=230,L=42,R=14,T=18,B=40,plotW=W-L-R,plotH=H-T-B;
- const vals=months.filter(x=>x.total!==null).map(x=>x.total),max=Math.max(1,...vals)*1.12,min=Math.min(0,...vals),yPos=v=>T+(max-v)/(max-min||1)*plotH,xPos=i=>L+(months.length===1?plotW/2:i/(months.length-1)*plotW);
- let paths=[],segment=[];
- months.forEach((d,i)=>{if(d.total===null){if(segment.length)paths.push(segment);segment=[];}else segment.push([xPos(i),yPos(d.total),d]);});if(segment.length)paths.push(segment);
- const path=paths.map(seg=>seg.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')).join(' ');
- const circles=months.map((d,i)=>d.total===null?'<circle cx="'+xPos(i)+'" cy="'+(H-B)+'" r="3" class="chart-missing-dot"><title>'+d.month+': sem relatório</title></circle>':'<circle cx="'+xPos(i)+'" cy="'+yPos(d.total)+'" r="4" class="chart-point"><title>'+d.month+': '+brl(d.total)+'</title></circle>').join('');
- const labels=months.map((d,i)=>i===0||i===months.length-1||i%Math.max(1,Math.ceil(months.length/6))===0?'<text x="'+xPos(i)+'" y="'+(H-12)+'" text-anchor="middle" class="chart-axis-label">'+monthLabel(d.month)+'</text>':'').join('');
- const grid=[0,.5,1].map(p=>{const yy=T+p*plotH;return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="chart-grid-line"/><text x="'+(L-8)+'" y="'+(yy+4)+'" text-anchor="end" class="chart-axis-label">'+(max*(1-p)/1000).toFixed(0)+'k</text>';}).join('');
- host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Linha de evolução mensal do faturamento">'+grid+'<path d="'+path+'" class="monthly-line"/>'+circles+labels+'</svg>';
- const latest=rows[rows.length-1],previous=rows.length>1?rows[rows.length-2]:null;
- let comparison='Há '+rows.length+' meses com relatório validado, de '+monthLabel(first)+' a '+monthLabel(last)+'.';
- if(previous){const pct=previous.total?((latest.total-previous.total)/previous.total)*100:null;comparison+=' Último mês capturado: '+brl(latest.total)+'. '+(pct===null?'':(pct>=0?'Alta de ':'Queda de ')+Math.abs(pct).toLocaleString('pt-BR',{maximumFractionDigits:1})+'% em relação ao mês capturado anterior ('+monthLabel(previous.month)+').');}
- const gaps=months.filter(x=>x.total===null).length;
- insight.innerHTML='<strong>'+monthLabel(latest.month)+' · '+brl(latest.total)+'</strong><span>'+esc(comparison)+' '+(gaps?gaps+' mês(es) sem relatório no intervalo, exibidos como lacunas.':'Sem lacunas entre os meses capturados.')+'</span>';
- caption.textContent=rows.length+' meses validados · '+monthLabel(first)+' a '+monthLabel(last);
+  const host=document.getElementById('monthlyVisualChart'),insight=document.getElementById('monthlyVisualInsight'),caption=document.getElementById('monthlyVisualCaption');
+  const rows=Array.isArray(window.marcopaoMonthlyHistory)?window.marcopaoMonthlyHistory:[];
+  if(!rows.length){host.innerHTML='<div class="visual-empty">Aguardando relatórios mensais validados.</div>';insight.textContent='O histórico será desenhado conforme os meses forem capturados.';caption.textContent='Nenhum mês validado disponível';return;}
+  const nowParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).format(new Date()).split('-').map(Number);
+  const openMonth=nowParts[0]+'-'+String(nowParts[1]).padStart(2,'0');
+  const openRow=rows.find(r=>r.month===openMonth)||null;
+  const closedRows=rows.filter(r=>r.month<openMonth);
+  const first=rows[0].month,last=rows[rows.length-1].month;
+  const [fy,fm]=first.split('-').map(Number),[ly,lm]=last.split('-').map(Number),months=[];
+  let y=fy,m=fm;
+  while(y<ly||(y===ly&&m<=lm)){const key=y+'-'+String(m).padStart(2,'0');const row=rows.find(r=>r.month===key);months.push({month:key,total:row?row.total:null,row,isOpen:key===openMonth&&!!row});m++;if(m===13){m=1;y++;}}
+  const W=680,H=230,L=42,R=14,T=18,B=40,plotW=W-L-R,plotH=H-T-B;
+  const vals=months.filter(x=>x.total!==null).map(x=>x.total),max=Math.max(1,...vals)*1.12,min=Math.min(0,...vals),yPos=v=>T+(max-v)/(max-min||1)*plotH,xPos=i=>L+(months.length===1?plotW/2:i/(months.length-1)*plotW);
+  let paths=[],segment=[];
+  months.forEach((d,i)=>{if(d.total===null||d.isOpen){if(segment.length)paths.push(segment);segment=[];}else segment.push([xPos(i),yPos(d.total),d]);});if(segment.length)paths.push(segment);
+  const closedPath=paths.map(seg=>seg.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')).join(' ');
+  const lastClosedIndex=months.reduce((found,d,i)=>d.total!==null&&!d.isOpen?i:found,-1),openIndex=months.findIndex(d=>d.isOpen);
+  const openPath=openRow&&lastClosedIndex>=0&&openIndex>=0?'M'+xPos(lastClosedIndex).toFixed(1)+','+yPos(months[lastClosedIndex].total).toFixed(1)+' L'+xPos(openIndex).toFixed(1)+','+yPos(openRow.total).toFixed(1):'';
+  const circles=months.map((d,i)=>d.total===null?'<circle cx="'+xPos(i)+'" cy="'+(H-B)+'" r="3" class="chart-missing-dot"><title>'+d.month+': sem relatório</title></circle>':d.isOpen?'<circle cx="'+xPos(i)+'" cy="'+yPos(d.total)+'" r="5" class="chart-open-point"><title>'+d.month+': parcial '+brl(d.total)+' · captura '+esc(d.row?.importedAt||'horário não informado')+'</title></circle>':'<circle cx="'+xPos(i)+'" cy="'+yPos(d.total)+'" r="4" class="chart-point"><title>'+d.month+': '+brl(d.total)+' · mês fechado</title></circle>').join('');
+  const labels=months.map((d,i)=>i===0||i===months.length-1||i%Math.max(1,Math.ceil(months.length/6))===0?'<text x="'+xPos(i)+'" y="'+(H-12)+'" text-anchor="middle" class="chart-axis-label">'+monthLabel(d.month)+(d.isOpen?' · aberto':'')+'</text>':'').join('');
+  const grid=[0,.5,1].map(p=>{const yy=T+p*plotH;return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" class="chart-grid-line"/><text x="'+(L-8)+'" y="'+(yy+4)+'" text-anchor="end" class="chart-axis-label">'+(max*(1-p)/1000).toFixed(0)+'k</text>';}).join('');
+  host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Linha de evolução mensal; mês atual em aberto indicado por linha tracejada">'+grid+'<path d="'+closedPath+'" class="monthly-line"/>'+(openPath?'<path d="'+openPath+'" class="monthly-line monthly-line-open"/>':'')+circles+labels+'</svg>';
+  const latestClosed=closedRows[closedRows.length-1]||null,gaps=months.filter(x=>x.total===null).length;
+  let summary='Há '+closedRows.length+' meses fechados com relatório validado'+(latestClosed?', de '+monthLabel(closedRows[0].month)+' a '+monthLabel(latestClosed.month):'')+'.';
+  if(openRow){const captured=openRow.importedAt?new Date(openRow.importedAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'horário não informado';summary+=' '+monthLabel(openMonth)+' está em aberto: '+brl(openRow.total)+' acumulados até a captura de '+captured+'. O trecho tracejado representa o mês parcial; não há comparação percentual com o mês fechado anterior.';}
+  else if(latestClosed)summary+=' Último mês fechado: '+monthLabel(latestClosed.month)+' · '+brl(latestClosed.total)+'.';
+  if(gaps)summary+=' '+gaps+' mês(es) sem relatório no intervalo, exibidos como lacunas.';
+  insight.innerHTML='<strong>'+(openRow?monthLabel(openMonth)+' · parcial '+brl(openRow.total):latestClosed?monthLabel(latestClosed.month)+' · '+brl(latestClosed.total):'Histórico mensal')+'</strong><span>'+esc(summary)+'</span>';
+  caption.textContent=closedRows.length+' meses fechados'+(openRow?' + '+monthLabel(openMonth)+' em aberto':'')+' · '+monthLabel(first)+' a '+monthLabel(last);
 }
 function render(){
  ensure();dailyChart();monthlyChart();
