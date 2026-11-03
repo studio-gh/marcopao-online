@@ -32,7 +32,7 @@ if (!normalizedHtml.includes("Nenhum relatório mensal foi validado em")) {
   throw new Error("Empty annual history must not display a misleading zero or partial YTD total");
 }
 
-const dailyDateFilter = '.filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)';
+const dailyDateFilter = '.filter(row=>/^\\d{4}-\\d{2}-\\d{2}$/.test(row.date)';
 if (!html.includes(dailyDateFilter)) {
   throw new Error('Daily Supabase reports must validate YYYY-MM-DD dates');
 }
