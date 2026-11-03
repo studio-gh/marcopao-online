@@ -118,3 +118,13 @@ if (!html.includes("endDate.setUTCDate(endDate.getUTCDate()-1)")) throw new Erro
 if (!html.includes("}else if(m===currentMonth){")) throw new Error("Current YTD month must never be compared with a full prior-year month");
 if (!html.includes(".year-month-list{grid-template-columns:repeat(2,minmax(0,1fr));")) throw new Error("YTD month list must use shrinkable grid columns to prevent horizontal overflow");
 if (!html.includes(".seven-day-table{width:100%;min-width:0;table-layout:fixed;")) throw new Error("Seven-day table must fit its container without forcing page overflow");
+
+const ytdLayoutStart = html.lastIndexOf("/* YTD month list: final layout rules override legacy flex declarations above. */");
+const ytdLayoutEnd = html.indexOf("</style>", ytdLayoutStart);
+if (ytdLayoutStart < 0 || ytdLayoutEnd < 0) throw new Error("Final YTD layout override is missing");
+const ytdLayout = html.slice(ytdLayoutStart, ytdLayoutEnd);
+if (!ytdLayout.includes("#yearOverview .year-month-row{") || !ytdLayout.includes("display:grid;")) throw new Error("YTD month rows must use an explicit grid layout after legacy CSS");
+if (!ytdLayout.includes("grid-template-columns:minmax(82px,.38fr) minmax(0,1fr);")) throw new Error("YTD month labels must have a protected column separate from revenue values");
+if (!ytdLayout.includes("white-space:nowrap;")) throw new Error("YTD month names must not break into multiple lines");
+if (!ytdLayout.includes("max-width:100%;")) throw new Error("YTD revenue values must remain inside their own month column");
+if (!ytdLayout.includes("@media(max-width:650px)")) throw new Error("YTD month list must collapse to one column on small screens");
