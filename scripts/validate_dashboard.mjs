@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import vm from "node:vm";
 
 const html = readFileSync("index.html", "utf8");
+const visualizations = readFileSync("report-visualizations.js", "utf8");
 
 // Integration contract checks: validate monthly data shape and duplicate handlers.
 const normalizedHtml = html.replace(/\\s+/g, " ");
@@ -82,7 +83,7 @@ if (!html.includes("window.marcopaoMonthlyHistory=monthlyHistory.map")) throw ne
 if (!html.includes("window.marcopaoDailyHistory=dailyReports.map")) throw new Error("Daily chart must receive normalized daily reports");
 if (!html.includes("marcopao:data-updated")) throw new Error("Visualizations must refresh after Supabase synchronization");
 if (!html.includes("./report-visualizations.js")) throw new Error("Visual analytics script must be loaded by the dashboard");
-if (!html.includes("Meses e dias sem relatório ficam em aberto")) throw new Error("Visual analytics must disclose missing periods rather than treating them as zero");
+if (!visualizations.includes("Dias e meses sem relatório permanecem como lacunas")) throw new Error("Visual analytics must disclose missing periods rather than treating them as zero");
 const dailyNormalizerBody = html.slice(dailyNormalizerStart, dailyNormalizerEnd);
 if (!dailyNormalizerBody.includes('row.date>=windowStart&&row.date<=currentDayKey')) throw new Error('Seven-day window must filter daily reports to the rolling date range');
 if (!dailyNormalizerBody.includes('window.marcopaoDailyWindow={start:windowStart,end:currentDayKey,rows:sevenDayRows,total:sevenDayTotal,coupons:sevenDayCoupons,daysWithReport:new Set(sevenDayRows.map(row=>row.date)).size}')) throw new Error('Seven-day aggregate contract is missing');
