@@ -56,3 +56,6 @@ The repository and GitHub Pages site are public. Do not add anonymous SELECT pol
 - Collector processes months newest-first, sequentially, stops at the first failure, and stores each report for review.
 - Run in batches of at most three months; verify Supabase after each batch before continuing.
 - Planned sequence: 2026-09 through 2026-07; 2026-06 through 2026-04; 2026-03 through 2026-01; 2025-12 through 2025-10; 2025-09 through 2025-07; 2025-06 through 2025-04; 2025-03 through 2025-01.
+
+
+Backfill batch launch: `[collect-report:monthly_backfill:2026-07:2026-09]`.
