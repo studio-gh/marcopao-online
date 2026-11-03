@@ -100,3 +100,9 @@ if (!normalizedHtml.includes('id="monthlyOverviewTotal">Aguardando sincronizaç�
 if (!normalizedHtml.includes('id="monthlyOverviewFoot"')) throw new Error("Current-month card must disclose source period, capture time and validation caveats");
 if (!normalizedHtml.includes('YTD · FATURAMENTO DOS MESES CAPTURADOS')) throw new Error("YTD must remain explicitly visible in the annual overview");
 if (!normalizedHtml.includes('YTD · mês a mês · ano atual')) throw new Error("Month-by-month YTD list must remain visible");
+
+// Daily chart and KPI window contains only completed days, ending yesterday in Sao Paulo.
+if (!normalizedHtml.includes("row.date<currentDayKey")) throw new Error("Daily series must exclude the still-open current day");
+if (!normalizedHtml.includes("endDayKey")) throw new Error("Seven-day daily window must end on the previous completed day");
+if (!normalizedHtml.includes("importedAt:row.imported_at||''")) throw new Error("Monthly history must retain the capture timestamp for the open-month marker");
+if (!visualizations.includes("monthly-line-open") || !visualizations.includes("não há comparação percentual com o mês fechado anterior")) throw new Error("Open month must use a dashed partial line and avoid misleading full-month percentage comparisons");
