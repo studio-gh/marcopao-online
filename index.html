@@ -237,9 +237,9 @@
       </tbody></table></div>
     </div>
   </section>
-  <section class="section-head" style="margin-top:30px"><div><h2>Ano em perspectiva</h2><p>Faturamento mensal e acumulado no ano, considerando apenas meses com relatório validado.</p></div><span class="tag">YEAR TO DATE</span></section>
+  <section class="section-head" style="margin-top:30px"><div><h2>Ano em perspectiva</h2><p>Faturamento dos meses com relatório validado. Períodos sem captura permanecem pendentes e não são tratados como zero.</p></div><span class="tag">HISTÓRICO CAPTURADO</span></section>
   <section class="panel year-overview" id="yearOverview">
-    <div class="year-ytd"><div class="eyebrow" style="color:var(--muted);opacity:1">ACUMULADO DO ANO</div><div class="showcase-number" id="ytdTotal">Aguardando relatórios mensais</div><div class="showcase-caption" id="ytdCaption">O acumulado será calculado após a validação dos relatórios mensais.</div></div>
+    <div class="year-ytd"><div class="eyebrow" style="color:var(--muted);opacity:1">FATURAMENTO DOS MESES CAPTURADOS</div><div class="showcase-number" id="ytdTotal">Aguardando relatórios mensais</div><div class="showcase-caption" id="ytdCaption">O total será exibido com a lista exata dos períodos considerados.</div></div>
     <div class="year-months"><div class="monthly-year-heading">Mês a mês · ano atual</div><div id="yearMonthlyStatus" class="monthly-year-status">Aguardando relatórios mensais.</div><div id="yearMonthlyList" class="year-month-list"></div></div>
   </section>
   <section class="section-head" style="margin-top:30px"><div><h2>O negócio em perspectiva</h2><p>Resumo executivo com dados importados e pendências claramente sinalizadas.</p></div><span class="tag">VISÃO DE GESTÃO</span></section>
@@ -845,8 +845,14 @@ window.setSupabaseReports = function(rows){
  }
  const ytdTotalEl=document.getElementById('ytdTotal');
  const ytdCaptionEl=document.getElementById('ytdCaption');
- if(ytdTotalEl)ytdTotalEl.textContent=ytdRows.length?money(ytdTotal):'Aguardando relatórios mensais';
- if(ytdCaptionEl)ytdCaptionEl.textContent=ytdRows.length+' mês(es) com relatório validado em '+currentYear+' · acumulado somente de meses únicos, sem duplicar revisões.';
+ const ytdLabelEl=document.querySelector('#yearOverview .year-ytd .eyebrow');
+ const periodDate=value=>value?new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(value+'T12:00:00Z')):'data não informada';
+ const capturedPeriods=ytdRows.map(item=>periodDate(item.row.period_start)+' a '+periodDate(item.row.period_end));
+ if(ytdLabelEl)ytdLabelEl.textContent=ytdRows.length?'FATURAMENTO DOS MESES CAPTURADOS':'FATURAMENTO CAPTURADO NO ANO';
+ if(ytdTotalEl)ytdTotalEl.textContent=ytdRows.length?money(ytdTotal):'Nenhum período validado';
+ if(ytdCaptionEl)ytdCaptionEl.textContent=ytdRows.length
+  ?ytdRows.length+' mês(es) com relatório validado em '+currentYear+'. Períodos considerados: '+capturedPeriods.join('; ')+'. Total de meses únicos, sem duplicar revisões.'
+  :'Nenhum relatório mensal foi validado em '+currentYear+'. O total anual ainda não pode ser calculado.';
  const yearList=document.getElementById('yearMonthlyList');
  const yearStatus=document.getElementById('yearMonthlyStatus');
  if(yearList&&yearStatus){
