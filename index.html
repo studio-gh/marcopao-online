@@ -847,11 +847,14 @@ window.setSupabaseReports = function(rows){
  const ytdCaptionEl=document.getElementById('ytdCaption');
  const ytdLabelEl=document.querySelector('#yearOverview .year-ytd .eyebrow');
  const periodDate=value=>value?new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(value+'T12:00:00Z')):'data não informada';
- const capturedPeriods=ytdRows.map(item=>periodDate(item.row.period_start)+' a '+periodDate(item.row.period_end));
+ const captureStamp=value=>value?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'data de captura não informada';
+ const capturedPeriods=ytdRows.map(item=>item.month===currentMonthKey
+  ?periodDate(item.row.period_start)+' até a captura de '+captureStamp(item.row.imported_at)
+  :periodDate(item.row.period_start)+' a '+periodDate(item.row.period_end));
  if(ytdLabelEl)ytdLabelEl.textContent=ytdRows.length?'FATURAMENTO DOS MESES CAPTURADOS':'FATURAMENTO CAPTURADO NO ANO';
  if(ytdTotalEl)ytdTotalEl.textContent=ytdRows.length?money(ytdTotal):'Nenhum período validado';
  if(ytdCaptionEl)ytdCaptionEl.textContent=ytdRows.length
-  ?ytdRows.length+' mês(es) com relatório validado em '+currentYear+'. Períodos considerados: '+capturedPeriods.join('; ')+'. Total de meses únicos, sem duplicar revisões.'
+  ?ytdRows.length+' mês(es) com relatório validado em '+currentYear+'. Períodos considerados: '+capturedPeriods.join('; ')+'. O mês corrente considera o acumulado até a data/hora da captura. Total de meses únicos, sem duplicar revisões.'
   :'Nenhum relatório mensal foi validado em '+currentYear+'. O total anual ainda não pode ser calculado.';
  const yearList=document.getElementById('yearMonthlyList');
  const yearStatus=document.getElementById('yearMonthlyStatus');
