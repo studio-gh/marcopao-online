@@ -190,7 +190,9 @@ def parse_report_data(report_type, raw):
         other_missing = [key for key in missing if key not in {"pos_credito", "pos_debito", "tef"}]
         if other_missing:
             warnings.append("Meios de pagamento ausentes: " + ", ".join(other_missing) + ".")
-        else:
+        # Reconcile only when every payment method is present. Card methods are
+        # part of the payment set too; their absence must never trigger a KeyError.
+        if not missing:
             payment_sum = round(sum(totals[k] for k in payment_keys), 2)
             totals["payment_methods_sum"] = payment_sum
             totals["payment_reconciliation_diff"] = round(payment_sum - totals["total"], 2)
