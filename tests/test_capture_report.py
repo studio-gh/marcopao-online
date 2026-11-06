@@ -145,6 +145,20 @@ Quantidades de Cupons: 10
         self.assertNotIn("payment_methods_sum", totals)
         self.assertTrue(any("pos_credito" in warning for warning in warnings))
 
+    def test_daily_report_missing_multiple_payment_methods_is_kept_for_review(self):
+        raw = """Venda de Hoje
+Total de vendas nos Pdvs
+Dinheiro: R$ 100,00
+PIX: R$ 25,00
+Total: R$ 125,00
+Quantidades de Cupons: 5
+"""
+        totals, warnings = parse_report_data("sale_day", raw)
+        self.assertEqual(totals["total"], 125.00)
+        self.assertFalse(totals["card_sales_included"])
+        self.assertNotIn("payment_methods_sum", totals)
+        self.assertTrue(any("pos_credito" in warning and "pos_debito" in warning for warning in warnings))
+
     def test_cards_are_included_in_payment_reconciliation(self):
         raw = """Venda do Dia
 Total de vendas nos Pdvs
