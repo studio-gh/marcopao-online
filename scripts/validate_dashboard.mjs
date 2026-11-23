@@ -114,7 +114,7 @@ if (!normalizedHtml.includes("isFullMonth(previous)")) throw new Error("Year-ove
 
 // Daily report date parsing must use a real YYYY-MM-DD digit pattern, not a literal backslash-d.
 if (!html.includes(String.raw`.filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)`)) throw new Error("Daily date filter must recognize valid ISO dates");
-if (!html.includes("endDate.setUTCDate(endDate.getUTCDate()-1)")) throw new Error("Seven-day daily summary must end yesterday, not include the still-open current day");
+if (!html.includes("const endDate=addDaysToKey(localToday,-1);")) throw new Error("Weekly comparison must end on the last completed day, excluding today");
 if (!html.includes("}else if(m===currentMonth){")) throw new Error("Current YTD month must never be compared with a full prior-year month");
 if (!html.includes(".year-month-list{grid-template-columns:repeat(2,minmax(0,1fr));")) throw new Error("YTD month list must use shrinkable grid columns to prevent horizontal overflow");
 if (!html.includes(".seven-day-table{width:100%;min-width:0;table-layout:fixed;")) throw new Error("Seven-day table must fit its container without forcing page overflow");
