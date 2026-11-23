@@ -129,8 +129,13 @@ if (!ytdLayout.includes("white-space:nowrap;")) throw new Error("YTD month names
 if (!ytdLayout.includes("max-width:100%;")) throw new Error("YTD revenue values must remain inside their own month column");
 if (!ytdLayout.includes("@media(max-width:650px)")) throw new Error("YTD month list must collapse to one column on small screens");
 
-if (!html.includes("dailyReports=[...latestPerDay.values()]")) throw new Error("Daily comparison must retain the latest valid report for each day, including today's partial report");
-if (!html.includes("const isOpenDay=!!today&&today.date===todayKey;")) throw new Error("Daily comparison must identify the current open day");
-if (!html.includes("Venda de hoje até agora")) throw new Error("Current-day daily comparison must clearly label partial sales");
-if (!html.includes("A comparação equivalente fica disponível após o fechamento.")) throw new Error("Current-day partial sales must not be compared as a closed day");
-if (!html.includes("if(prev&&!isOpenDay)")) throw new Error("Daily percentage comparison must wait until the current day is closed");
+if (!html.includes("dailyReports=[...latestPerDay.values()]")) throw new Error("Daily comparison must retain the latest valid report for each day");
+if (!html.includes("const previousWeekDate=addDaysToKey(today.date,-7);")) throw new Error("Daily comparison must match the same weekday exactly seven days earlier");
+if (!html.includes("Mesmo dia · semana anterior")) throw new Error("Daily KPI must identify the same-weekday comparison");
+if (!html.includes("function weekdayLabel(key)")) throw new Error("Daily comparison must label weekdays clearly");
+if (!html.includes("const previousStart=addDaysToKey(startDate,-7);")) throw new Error("Weekly comparison must align equivalent Monday-starting periods");
+if (!html.includes("const complete=currentCoverage===expectedDays&&previousCoverage===expectedDays;")) throw new Error("Weekly percentage comparison must require complete coverage in both periods");
+if (!html.includes("sevenDayPreviousTotal")) throw new Error("Weekly comparison must show the previous period total");
+if (!html.includes("sevenDayDeltaPct")) throw new Error("Weekly comparison must show week-over-week percentage change");
+if (!html.includes("<th>Atual</th><th>Anterior</th><th>Diferença</th>")) throw new Error("Weekly table must compare each weekday with its counterpart from the previous week");
+if (!html.includes("Dias sem relatório não entram como zero")) throw new Error("Weekly comparison must disclose missing-day treatment");
