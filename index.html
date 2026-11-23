@@ -786,7 +786,11 @@ function renderDailyComparison(){
   setText('dailyDelta','—');setText('dailyDeltaCaption','Aguardando relatório do mesmo dia da semana anterior');setText('dailyDeltaPct','—');
  }
  setText('dailyDeltaPctCaption','Calculada sobre o faturamento do mesmo dia da semana anterior');
- setText('dailyTodayCouponsLabel','Cupons · '+dayName);\n setText('dailyPrevCouponsLabel','Cupons · mesmo dia da semana anterior');\n setText('dailyTodayTicketLabel','Ticket médio · '+dayName);\n setText('dailyPrevTicketLabel','Ticket médio · mesmo dia da semana anterior');\n setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
+ setText('dailyTodayCouponsLabel','Cupons · '+dayName);
+ setText('dailyPrevCouponsLabel','Cupons · mesmo dia da semana anterior');
+ setText('dailyTodayTicketLabel','Ticket médio · '+dayName);
+ setText('dailyPrevTicketLabel','Ticket médio · mesmo dia da semana anterior');
+ setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
  setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
  setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
