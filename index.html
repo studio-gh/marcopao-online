@@ -245,10 +245,10 @@
       <div class="day-kpi"><label id="dailyPrevLabel">Mesmo dia · semana anterior</label><strong id="dailyPrevTotal">—</strong><small id="dailyPrevDate">Data não identificada</small></div>
       <div class="day-kpi"><label>Variação absoluta</label><strong id="dailyDelta">—</strong><small id="dailyDeltaCaption">Comparação ainda indisponível</small></div>
       <div class="day-kpi"><label>Variação percentual</label><strong id="dailyDeltaPct">—</strong><small id="dailyDeltaPctCaption">Calculada sobre o faturamento do mesmo dia da semana anterior</small></div>
-      <div class="day-kpi"><label>Cupons de hoje</label><strong id="dailyTodayCoupons">—</strong><small>Conforme relatório do dia</small></div>
-      <div class="day-kpi"><label>Cupons do dia anterior</label><strong id="dailyPrevCoupons">—</strong><small>Conforme relatório anterior</small></div>
-      <div class="day-kpi"><label>Ticket médio de hoje</label><strong id="dailyTodayTicket">—</strong><small>Conforme relatório do dia</small></div>
-      <div class="day-kpi"><label>Ticket médio anterior</label><strong id="dailyPrevTicket">—</strong><small>Conforme relatório anterior</small></div>
+      <div class="day-kpi"><label id="dailyTodayCouponsLabel">Cupons do dia</label><strong id="dailyTodayCoupons">—</strong><small>Conforme relatório do dia</small></div>
+      <div class="day-kpi"><label id="dailyPrevCouponsLabel">Cupons · mesmo dia da semana anterior</label><strong id="dailyPrevCoupons">—</strong><small>Conforme relatório anterior</small></div>
+      <div class="day-kpi"><label id="dailyTodayTicketLabel">Ticket médio do dia</label><strong id="dailyTodayTicket">—</strong><small>Conforme relatório do dia</small></div>
+      <div class="day-kpi"><label id="dailyPrevTicketLabel">Ticket médio · mesmo dia da semana anterior</label><strong id="dailyPrevTicket">—</strong><small>Conforme relatório anterior</small></div>
     </div>
     <div class="card-detail-panel" id="dailyCardDetails" style="display:none">
       <div class="card-detail-head">
@@ -780,13 +780,13 @@ function renderDailyComparison(){
   const delta=today.metrics.total-prev.metrics.total;
   const deltaPct=prev.metrics.total?delta/prev.metrics.total*100:null;
   setText('dailyDelta',(delta>=0?'+':'')+money(delta));
-  setText('dailyDeltaCaption',delta>=0?'Faturamento acima do mesmo dia anterior':'Faturamento abaixo do mesmo dia anterior');
+  setText('dailyDeltaCaption',delta>=0?'Faturamento acima do mesmo dia da semana anterior':'Faturamento abaixo do mesmo dia da semana anterior');
   setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
  }else{
   setText('dailyDelta','—');setText('dailyDeltaCaption','Aguardando relatório do mesmo dia da semana anterior');setText('dailyDeltaPct','—');
  }
  setText('dailyDeltaPctCaption','Calculada sobre o faturamento do mesmo dia da semana anterior');
- setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
+ setText('dailyTodayCouponsLabel','Cupons · '+dayName);\n setText('dailyPrevCouponsLabel','Cupons · mesmo dia da semana anterior');\n setText('dailyTodayTicketLabel','Ticket médio · '+dayName);\n setText('dailyPrevTicketLabel','Ticket médio · mesmo dia da semana anterior');\n setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
  setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
  setText('dailyPrevTicket',!prev||prev.metrics.ticket==null?'—':money(prev.metrics.ticket));
