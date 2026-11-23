@@ -236,15 +236,15 @@
   </section>
 
   <section class="day-compare hidden-by-filter" id="dailyCompareView" aria-live="polite">
-    <h2>Acompanhamento diário · vendas e comparação</h2>
+    <h2>Acompanhamento diário · mesmo dia da semana</h2>
     <div class="sub" id="dailyCompareSubtitle">A visão diária aparecerá quando os relatórios de dois dias consecutivos estiverem importados e com data identificada.</div>
     <div class="sub" id="dailyReportSyncMeta">Aguardando leitura do Supabase.</div>
     <div id="dailyCompareEmpty" class="day-empty">Ainda não há dois relatórios diários validados no dashboard. Não vamos substituir dados reais por números de exemplo.</div>
     <div class="day-grid" id="dailyCompareGrid" style="display:none">
       <div class="day-kpi"><label id="dailyTodayLabel">Venda do dia</label><strong id="dailyTodayTotal">—</strong><small id="dailyTodayDate">Data não identificada</small></div>
-      <div class="day-kpi"><label id="dailyPrevLabel">Dia anterior</label><strong id="dailyPrevTotal">—</strong><small id="dailyPrevDate">Data não identificada</small></div>
+      <div class="day-kpi"><label id="dailyPrevLabel">Mesmo dia · semana anterior</label><strong id="dailyPrevTotal">—</strong><small id="dailyPrevDate">Data não identificada</small></div>
       <div class="day-kpi"><label>Variação absoluta</label><strong id="dailyDelta">—</strong><small id="dailyDeltaCaption">Comparação ainda indisponível</small></div>
-      <div class="day-kpi"><label>Variação percentual</label><strong id="dailyDeltaPct">—</strong><small id="dailyDeltaPctCaption">Calculada sobre o faturamento do dia anterior</small></div>
+      <div class="day-kpi"><label>Variação percentual</label><strong id="dailyDeltaPct">—</strong><small id="dailyDeltaPctCaption">Calculada sobre o faturamento do mesmo dia da semana anterior</small></div>
       <div class="day-kpi"><label>Cupons de hoje</label><strong id="dailyTodayCoupons">—</strong><small>Conforme relatório do dia</small></div>
       <div class="day-kpi"><label>Cupons do dia anterior</label><strong id="dailyPrevCoupons">—</strong><small>Conforme relatório anterior</small></div>
       <div class="day-kpi"><label>Ticket médio de hoje</label><strong id="dailyTodayTicket">—</strong><small>Conforme relatório do dia</small></div>
@@ -262,14 +262,16 @@
       <p class="card-detail-note">Este relatório complementar não é somado novamente ao faturamento diário, para evitar dupla contagem com POS/TEF. Dados aguardando revisão.</p>
     </div>
     <div class="seven-day-panel" id="sevenDaySummaryPanel">
-      <div class="seven-day-heading"><div><h3>Consolidado dos últimos 7 dias</h3><p id="sevenDaySubtitle">Soma diária acumulada, usando a versão mais recente validada de cada data.</p></div><span class="tag">7 DIAS</span></div>
+      <div class="seven-day-heading"><div><h3>Comparativo semanal</h3><p id="sevenDaySubtitle">Semana atual contra os mesmos dias da semana anterior.</p></div><span class="tag">SEMANA A SEMANA</span></div>
       <div class="seven-day-kpis">
-        <div class="seven-day-kpi"><span>Faturamento acumulado</span><strong id="sevenDayTotal">—</strong><small id="sevenDayCoverage">—</small></div>
-        <div class="seven-day-kpi"><span>Média por dia com relatório</span><strong id="sevenDayAverage">—</strong><small>Não inclui dias sem relatório</small></div>
-        <div class="seven-day-kpi"><span>Cupons acumulados</span><strong id="sevenDayCoupons">—</strong><small id="sevenDayTickets">Cupons dos dias disponíveis</small></div>
+        <div class="seven-day-kpi"><span>Faturamento · período atual</span><strong id="sevenDayTotal">—</strong><small id="sevenDayCoverage">—</small></div>
+        <div class="seven-day-kpi"><span>Faturamento · semana anterior</span><strong id="sevenDayPreviousTotal">—</strong><small id="sevenDayPreviousCoverage">—</small></div>
+        <div class="seven-day-kpi"><span>Variação absoluta</span><strong id="sevenDayDelta">—</strong><small id="sevenDayDeltaCaption">Aguardando períodos completos</small></div>
+        <div class="seven-day-kpi"><span>Variação percentual</span><strong id="sevenDayDeltaPct">—</strong><small>Período atual contra semana anterior</small></div>
+        <div class="seven-day-kpi"><span>Cupons · período atual</span><strong id="sevenDayCoupons">—</strong><small id="sevenDayTickets">Cupons dos dias disponíveis</small></div>
         <div class="seven-day-kpi"><span>Ticket médio ponderado</span><strong id="sevenDayTicket">—</strong><small>Total vendido ÷ cupons acumulados</small></div>
       </div>
-      <div class="seven-day-table-wrap"><table class="table seven-day-table"><thead><tr><th>Dia</th><th>Venda</th><th>Cupons</th><th>Acumulado</th></tr></thead><tbody id="sevenDayRows"></tbody></table></div>
+      <div class="seven-day-table-wrap"><table class="table seven-day-table"><thead><tr><th>Dia</th><th>Atual</th><th>Anterior</th><th>Diferença</th></tr></thead><tbody id="sevenDayRows"></tbody></table></div>
       <p class="seven-day-foot" id="sevenDayFoot">Dias sem relatório ficam identificados e não são tratados como venda zero.</p>
     </div>
 
@@ -664,46 +666,65 @@ function renderCardDetails(today,prev){
  panel.style.display='block';
 }
 
+function addDaysToKey(key,days){
+ const d=new Date(key+'T00:00:00Z');
+ d.setUTCDate(d.getUTCDate()+days);
+ return d.toISOString().slice(0,10);
+}
+function weekdayLabel(key){
+ return new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'UTC'}).format(new Date(key+'T12:00:00Z'));
+}
 function renderSevenDaySummary(reports){
  const rows=(reports||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
- const latest=rows[rows.length-1]||null;
  const localToday=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- const endDate=new Date(localToday+'T00:00:00Z');
- endDate.setUTCDate(endDate.getUTCDate()-1);
- const startDate=new Date(endDate);
- startDate.setUTCDate(startDate.getUTCDate()-6);
- const dateKey=d=>d.toISOString().slice(0,10);
- const byDate=new Map(rows.map(r=>[r.date,r]));
- const days=[];
- let cumulative=0;
- for(let i=0;i<7;i++){
-  const d=new Date(startDate);d.setUTCDate(d.getUTCDate()+i);
-  const key=dateKey(d),r=byDate.get(key)||null;
-  if(r)cumulative+=r.metrics.total||0;
-  days.push({date:key,row:r,cumulative});
+ const endDate=addDaysToKey(localToday,-1);
+ const endObj=new Date(endDate+'T12:00:00Z');
+ const mondayOffset=(endObj.getUTCDay()+6)%7;
+ const startDate=addDaysToKey(endDate,-mondayOffset);
+ const previousStart=addDaysToKey(startDate,-7);
+ const previousEnd=addDaysToKey(endDate,-7);
+ const expectedDays=Math.floor((new Date(endDate+'T12:00:00Z')-new Date(startDate+'T12:00:00Z'))/86400000)+1;
+ const branch=rows.filter(r=>r.date<=endDate).slice(-1)[0]?.branch;
+ const byDate=new Map(rows.filter(r=>!branch||r.branch===branch).map(r=>[r.date,r]));
+ const currentDays=[],previousDays=[];
+ for(let i=0;i<expectedDays;i++){
+  const date=addDaysToKey(startDate,i),previousDate=addDaysToKey(previousStart,i);
+  currentDays.push({date,row:byDate.get(date)||null});
+  previousDays.push({date:previousDate,row:byDate.get(previousDate)||null});
  }
- const fmtDate=key=>new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}).format(new Date(key+'T00:00:00Z'));
- const available=days.filter(d=>d.row);
- const total=available.reduce((sum,d)=>sum+(d.row.metrics.total||0),0);
- const avg=available.length?total/available.length:0;
- const couponDays=available.filter(d=>Number.isFinite(d.row.metrics.coupons)).length;
- const totalCoupons=available.reduce((sum,d)=>sum+(Number.isFinite(d.row.metrics.coupons)?d.row.metrics.coupons:0),0);
- const weightedTicket=totalCoupons?total/totalCoupons:null;
- const reviewDays=available.filter(d=>Array.isArray(d.row.warnings)&&d.row.warnings.length).length;
- setText('sevenDayTotal',available.length?money(total):'—');
- setText('sevenDayAverage',available.length?money(avg):'—');
- setText('sevenDayCoupons',available.length?num(totalCoupons):'—');
- setText('sevenDayTicket',weightedTicket===null?'—':money(weightedTicket));
- setText('sevenDayCoverage',available.length+' de 7 dias com dados disponíveis');
- setText('sevenDayTickets',couponDays+' dia(s) com contagem de cupons');
- setText('sevenDaySubtitle','Janela móvel de '+fmtDate(days[0].date)+' a '+fmtDate(days[6].date)+'. Atualizada a cada sincronização.');
+ const sumDays=items=>items.reduce((sum,item)=>sum+(item.row?.metrics.total||0),0);
+ const currentTotal=sumDays(currentDays),previousTotal=sumDays(previousDays);
+ const currentCoverage=currentDays.filter(d=>d.row).length,previousCoverage=previousDays.filter(d=>d.row).length;
+ const complete=currentCoverage===expectedDays&&previousCoverage===expectedDays;
+ const currentCoupons=currentDays.reduce((sum,d)=>sum+(d.row&&Number.isFinite(d.row.metrics.coupons)?d.row.metrics.coupons:0),0);
+ const currentTicket=currentCoupons?currentTotal/currentCoupons:null;
+ const fmtDate=key=>new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}).format(new Date(key+'T12:00:00Z'));
+ const periodLabel=fmtDate(startDate)+' a '+fmtDate(endDate);
+ const previousLabel=fmtDate(previousStart)+' a '+fmtDate(previousEnd);
+ const moneyOrDash=value=>Number.isFinite(value)?money(value):'—';
+ const delta=complete?currentTotal-previousTotal:null;
+ const pct=complete&&previousTotal?delta/previousTotal*100:null;
+ setText('sevenDayTotal',currentCoverage?money(currentTotal):'—');
+ setText('sevenDayAverage',currentCoverage?money(currentTotal/currentCoverage):'—');
+ setText('sevenDayCoupons',currentCoverage?num(currentCoupons):'—');
+ setText('sevenDayTicket',currentTicket===null?'—':money(currentTicket));
+ setText('sevenDayCoverage',currentCoverage+' de '+expectedDays+' dia(s) com dados · '+periodLabel);
+ setText('sevenDayTickets',currentCoverage+' dia(s) com relatório');
+ setText('sevenDayPreviousTotal',previousCoverage?money(previousTotal):'—');
+ setText('sevenDayDelta',delta===null?'—':(delta>=0?'+':'')+money(delta));
+ setText('sevenDayDeltaPct',pct===null?'—':(pct>=0?'+':'')+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
+ setText('sevenDayPreviousCoverage',previousCoverage+' de '+expectedDays+' dia(s) · '+previousLabel);
+ setText('sevenDayDeltaCaption',complete?'Variação do período atual contra a semana anterior':'Variação disponível quando os dois períodos tiverem todos os dias');
+ setText('sevenDaySubtitle','Período atual: '+periodLabel+' · semana anterior: '+previousLabel+'. Comparação de dias equivalentes.');
  const body=document.getElementById('sevenDayRows');
- if(body)body.innerHTML=days.map(d=>{
-  const status=d.row?(d.row.warnings?.length?' · conferir':''):' · sem relatório';
-  return '<tr'+(!d.row?' class="missing-day"':'')+'><td>'+fmtDate(d.date)+status+'</td><td>'+(d.row?money(d.row.metrics.total):'—')+'</td><td>'+(d.row&&Number.isFinite(d.row.metrics.coupons)?num(d.row.metrics.coupons):'—')+'</td><td>'+(d.row?money(d.cumulative):'—')+'</td></tr>';
+ if(body)body.innerHTML=currentDays.map((d,i)=>{
+  const prev=previousDays[i].row;
+  const dayDelta=d.row&&prev?d.row.metrics.total-prev.metrics.total:null;
+  const dayText=weekdayLabel(d.date);
+  return '<tr'+(!d.row||!prev?' class="missing-day"':'')+'><td>'+dayText+' · '+fmtDate(d.date)+'</td><td>'+(d.row?money(d.row.metrics.total):'—')+'</td><td>'+(prev?money(prev.metrics.total):'—')+'</td><td>'+(dayDelta===null?'—':(dayDelta>=0?'+':'')+money(dayDelta))+'</td></tr>';
  }).join('');
- const missing=7-available.length;
- const foot=available.length+' de 7 dias com relatório disponível. '+(missing?missing+' dia(s) sem relatório, fora da soma. ':'')+(reviewDays?reviewDays+' relatório(s) com ressalvas de captura/conciliação. ':'')+'Dias ausentes nunca são tratados como faturamento zero.';
+ const missingCurrent=expectedDays-currentCoverage,missingPrevious=expectedDays-previousCoverage;
+ const foot=complete?'Comparação completa: '+expectedDays+' dias contra os mesmos '+expectedDays+' dias da semana anterior.': 'Comparação parcial: '+currentCoverage+'/'+expectedDays+' dias no período atual e '+previousCoverage+'/'+expectedDays+' na semana anterior. Dias sem relatório não entram como zero; variação geral fica indisponível até os períodos estarem completos.';
  setText('sevenDayFoot',foot);
 }
 function renderDailyComparison(){
@@ -712,72 +733,59 @@ function renderDailyComparison(){
  const syncMeta=document.getElementById('dailyReportSyncMeta');
  const period=document.getElementById('periodFilter').value;
  const customDate=document.getElementById('reportDateFilter')?.value||'';
- let ready=dailyReports
-  .filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total))
-  .sort((a,b)=>a.date.localeCompare(b.date));
+ let ready=dailyReports.filter(r=>r.date&&r.metrics&&Number.isFinite(r.metrics.total)).sort((a,b)=>a.date.localeCompare(b.date));
  const allValid=[...ready];
- const latestAll=allValid[allValid.length-1]||null;
+ const todayKey=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const closedRows=allValid.filter(r=>r.date<todayKey);
+ const latestAll=closedRows[closedRows.length-1]||null;
  if(syncMeta){
   const imported=latestAll?.importedAt?new Date(latestAll.importedAt):null;
   const stamp=imported&&!Number.isNaN(imported.getTime())?' · importado '+new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(imported):'';
-  syncMeta.textContent=latestAll?'Último relatório diário válido no navegador: '+latestAll.date+' · '+money(latestAll.metrics.total)+stamp+'.':'Nenhum relatório diário válido foi carregado nesta sessão do navegador.';
+  syncMeta.textContent=latestAll?'Último dia fechado no navegador: '+latestAll.date+' · '+money(latestAll.metrics.total)+stamp+'.':'Nenhum relatório diário fechado válido foi carregado nesta sessão do navegador.';
  }
  if(period==='today'){
-  const todayIso=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  ready=ready.filter(r=>r.date===todayIso);
+  ready=ready.filter(r=>r.date===todayKey);
  }else if(period==='custom'&&customDate){
   ready=ready.filter(r=>r.date===customDate);
  }else if(period==='month'){
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).format(new Date());
+  const parts=todayKey.slice(0,7);
   ready=ready.filter(r=>r.date.slice(0,7)===parts);
  }
- const today=ready[ready.length-1]||null;
- const todayKey=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- const isOpenDay=!!today&&today.date===todayKey;
+ const today=ready.filter(r=>r.date<todayKey).slice(-1)[0]||null;
  if(!today){
   empty.style.display='block';grid.style.display='none';
   const suffix=period==='custom'&&customDate?' para '+customDate:period==='today'?' para hoje':period==='month'?' no mês atual':'';
-  setText('dailyCompareSubtitle','Marcopão · comparação com o último relatório diário disponível.');
-  if(latestAll){
-   empty.textContent='O navegador carregou até '+latestAll.date+' ('+money(latestAll.metrics.total)+'), mas nenhum relatório corresponde ao filtro selecionado'+suffix+'. Use “Último dia disponível” ou “Atualizar dados” para consultar novamente.';
-  }else{
-   empty.textContent='Nenhum relatório diário validado foi recebido do Supabase nesta sessão. Clique em “Atualizar dados”; se o problema continuar, confira o estado da sincronização no topo da página.';
-  }
+  setText('dailyCompareSubtitle','Marcopão · comparação com o mesmo dia da semana anterior.');
+  if(latestAll)empty.textContent='O último dia fechado carregado foi '+latestAll.date+' ('+money(latestAll.metrics.total)+'), mas não há relatório correspondente ao filtro selecionado'+suffix+'.';
+  else empty.textContent='Nenhum relatório diário fechado válido foi recebido do Supabase nesta sessão.';
   renderCardDetails(null,null);
   renderSevenDaySummary(allValid);
   return;
  }
- const dateObj=new Date(today.date+'T00:00:00Z');
- dateObj.setUTCDate(dateObj.getUTCDate()-1);
- const expectedPrevDate=dateObj.toISOString().slice(0,10);
- const prev=ready.filter(r=>r.branch===today.branch&&r.date===expectedPrevDate)
-  .sort((a,b)=>(b.importedAt||'').localeCompare(a.importedAt||''))[0]||null;
+ const previousWeekDate=addDaysToKey(today.date,-7);
+ const prev=allValid.filter(r=>r.branch===today.branch&&r.date===previousWeekDate).sort((a,b)=>(b.importedAt||'').localeCompare(a.importedAt||''))[0]||null;
  grid.style.display='grid';
  empty.style.display=prev?'none':'block';
- if(!prev)empty.textContent='Relatório de '+today.date+' carregado. Falta o relatório de '+expectedPrevDate+' da mesma filial; a comparação ficará incompleta até a coleta desse dia.';
+ if(!prev)empty.textContent='Relatório de '+today.date+' carregado. Falta o mesmo dia da semana anterior ('+previousWeekDate+'); a comparação ficará disponível quando esse relatório existir.';
  const reviewNeeded=[today,prev].filter(Boolean).some(r=>r.status==='needs_review');
- const capturedAt=today.importedAt?new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date(today.importedAt)):null;
- setText('dailyCompareSubtitle',isOpenDay
-  ?'Marcopão · '+today.date+' em andamento'+(capturedAt?' · parcial até '+capturedAt:'')+'. A comparação equivalente fica disponível após o fechamento.'+(reviewNeeded?' Há dados aguardando revisão.':'')
-  :'Marcopão · '+today.date+(prev?' comparado com '+prev.date:'; falta '+expectedPrevDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
- setText('dailyTodayLabel',isOpenDay?'Venda de hoje até agora':'Venda do dia');
- setText('dailyPrevLabel',isOpenDay?'Último dia fechado':'Dia anterior');
+ const dayName=weekdayLabel(today.date);
+ setText('dailyCompareSubtitle','Marcopão · '+dayName+' '+today.date+' comparado com '+(prev?weekdayLabel(prev.date)+' '+prev.date:previousWeekDate)+(reviewNeeded?' · há dados aguardando revisão.':''));
+ setText('dailyTodayLabel','Este '+dayName);
+ setText('dailyPrevLabel','Mesmo dia · semana anterior');
  setText('dailyTodayTotal',money(today.metrics.total));
  setText('dailyPrevTotal',prev?money(prev.metrics.total):'—');
- setText('dailyTodayDate',today.date+(isOpenDay&&capturedAt?' · parcial até '+capturedAt:'')+(today.status==='needs_review'?' · revisão pendente':''));
+ setText('dailyTodayDate',today.date+(today.status==='needs_review'?' · revisão pendente':''));
  setText('dailyPrevDate',prev?prev.date+(prev.status==='needs_review'?' · revisão pendente':''):'Data não importada');
- if(prev&&!isOpenDay){
+ if(prev){
   const delta=today.metrics.total-prev.metrics.total;
   const deltaPct=prev.metrics.total?delta/prev.metrics.total*100:null;
   setText('dailyDelta',(delta>=0?'+':'')+money(delta));
-  setText('dailyDeltaCaption',delta>=0?'Faturamento acima do dia anterior':'Faturamento abaixo do dia anterior');
+  setText('dailyDeltaCaption',delta>=0?'Faturamento acima do mesmo dia anterior':'Faturamento abaixo do mesmo dia anterior');
   setText('dailyDeltaPct',deltaPct===null?'—':(deltaPct>=0?'+':'')+deltaPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
  }else{
-  setText('dailyDelta','—');
-  setText('dailyDeltaCaption',isOpenDay?'Dia em andamento · variação após fechamento':'Aguardando relatório do dia anterior');
-  setText('dailyDeltaPct','—');
+  setText('dailyDelta','—');setText('dailyDeltaCaption','Aguardando relatório do mesmo dia da semana anterior');setText('dailyDeltaPct','—');
  }
- setText('dailyDeltaPctCaption',isOpenDay?'Comparação percentual após o fechamento':'Calculada sobre o faturamento do dia anterior');
+ setText('dailyDeltaPctCaption','Calculada sobre o faturamento do mesmo dia da semana anterior');
  setText('dailyTodayCoupons',today.metrics.coupons==null?'—':num(today.metrics.coupons));
  setText('dailyPrevCoupons',!prev||prev.metrics.coupons==null?'—':num(prev.metrics.coupons));
  setText('dailyTodayTicket',today.metrics.ticket==null?'—':money(today.metrics.ticket));
